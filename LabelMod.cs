@@ -13,29 +13,21 @@ using System.IO;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using Il2CppScheduleOne.Persistence.Loaders;
-using Il2CppFishNet.Object;
-using Il2CppScheduleOne.Persistence.Datas;
 using Il2CppScheduleOne.EntityFramework;
-using System.Runtime.CompilerServices;
-using Il2CppScheduleOne.ObjectScripts;
-using System.Security.AccessControl;
-using static Il2CppVLB.Consts;
 using System.Linq;
-
+using System.Text.RegularExpressions;
 
 namespace SimpleLabels
 {
-
     public class LabelMod : MelonMod
     {
         public static LabelMod Instance { get; private set; }
-        private static readonly bool debug = true;
+        private static readonly bool debug = false;
         private TMP_InputField customInputField;
-        private bool wasStorageRackOpen = false; // Track if the storage rack was open
+        private bool wasStorageRackOpen = false;
         GameObject openEntityGameObject;
         private string openEntityGameObjectGUID;
         private string openEntityName;
-        private string escWasAlreadyPressed = "false"; // Track if ESC was already pressed
 
         //Mod Config
         private ModConfig config;
@@ -54,6 +46,7 @@ namespace SimpleLabels
         public override void OnInitializeMelon()
         {
             Instance = this;
+            LoggerInstance.Msg("SimpleLabels mod initializing...");
 
             //Mod Config
             configFolderPath = Path.Combine(MelonEnvironment.ModsDirectory, "SimpleLabels");
@@ -65,7 +58,6 @@ namespace SimpleLabels
             labelDataFilePath = Path.Combine(configFolderPath, "Labels.json");
             unsavedLabelData = new LabelData();
 
-
             MelonCoroutines.Start(WaitAndHook());
 
         }
@@ -76,10 +68,8 @@ namespace SimpleLabels
 
             if (sceneName == "Main")
             {
-
-                
                 MelonCoroutines.Start(WaitAndSubscribe());
-                InitializeLabelPrefab(); // Initialize the label prefab
+                InitializeLabelPrefab();
                 
                 GameObject storageUI = GameObject.Find("UI/StorageMenu");
                 if (storageUI != null)
@@ -100,8 +90,6 @@ namespace SimpleLabels
                     MelonLogger.Msg("Label prefab is not null.");
                 }
 
-                escWasAlreadyPressed = "false"; // Reset ESC key state
-
             }
             else if (sceneName == "Menu")
             {
@@ -118,38 +106,27 @@ namespace SimpleLabels
         }
 
 
-        private System.Collections.IEnumerator WaitAndHook() //Hook into SaveManager
+        private System.Collections.IEnumerator WaitAndHook()
         {
-
             while (SaveManager.Instance == null && LoadManager.Instance == null)
                 yield return null;
 
-
             UnityEvent onSaveStart = SaveManager.Instance.onSaveStart;
             onSaveStart.AddListener((UnityAction)OnSaveStart);
-
-            //UnityEvent saveCompleteEvent = SaveManager.Instance.onSaveComplete;  --> Probably not needed, but could be useful in the future
-            //saveCompleteEvent.AddListener((UnityAction)OnSaveCompleted);        
-
-
-
-
         }
 
         private void OnSaveStart()
         {
-            if (debug) MelonLogger.Msg("Save Start.");
+            LoggerInstance.Msg("Saving label data...");
 
-            
             foreach (var kvp in unsavedLabelData.Labels)
             {
                 labelData.Labels[kvp.Key] = kvp.Value;
             }
 
-            
-            foreach (var guid in unsavedLabelData.Labels.Keys)// Remove any empty strings 
+            foreach (var guid in unsavedLabelData.Labels.Keys)
             {
-                if (string.IsNullOrEmpty(unsavedLabelData.Labels[guid]))
+                if (string.IsNullOrEmpty(unsavedLabelData.Labels[guid]))// Remove any empty strings 
                 {
                     labelData.Labels.Remove(guid);
                 }
@@ -161,11 +138,9 @@ namespace SimpleLabels
         }
 
 
-
         [HarmonyPatch(typeof(StorageMenu), nameof(StorageMenu.Open), new Type[] { typeof(StorageEntity) })]
         class StorageMenu_Open_Patch
         {
-
 
             static void Postfix(StorageMenu __instance, StorageEntity entity)
             {
@@ -226,15 +201,13 @@ namespace SimpleLabels
 
                     Instance.wasStorageRackOpen = true;
 
-                    //Update label prefabs
-
                     StorageTracker.TrackStorage(Instance.openEntityGameObjectGUID, entity.gameObject);
 
                 }
             }
         }
 
-        private System.Collections.IEnumerator WaitAndSubscribe() //Subscribe to StorageMenu close event
+        private System.Collections.IEnumerator WaitAndSubscribe()
         {
             while (StorageMenu.Instance == null)
                 yield return null;
@@ -246,141 +219,108 @@ namespace SimpleLabels
         {
             StorageMenu.Instance.gameObject.transform.Find("CustomInputField").gameObject.SetActive(false); //Hide input field
 
-
-        }
-
-        [HarmonyPatch(typeof(StorageMenu))]
-        class StorageMenu_Close_Patches
-        {
-
-            [HarmonyPrefix]
-            [HarmonyPatch(nameof(StorageMenu.Close))]
-            [HarmonyPatch(nameof(StorageMenu.Exit))]
-            static void HandleMenuClose(StorageMenu __instance)
+            try
             {
-                // Block exit if triggered by right-click
-                if (Input.GetMouseButtonDown(1)) // Right mouse button
-                {
-                    if (debug) MelonLogger.Msg("Blocked StorageMenu exit: Right-click detected!");
-                    return;
-                }
-
-                // Block exit if triggered by ESC key the first time
-                if (Input.GetKeyDown(KeyCode.Escape) && Instance.escWasAlreadyPressed == "false")
-                {
-                    Instance.escWasAlreadyPressed = "true";
-                    if (debug) MelonLogger.Msg("Blocked StorageMenu exit: ESC key detected!");
-                    return;
-                }
-
-                
-
-                try
-                {
-
-                    var inputField = __instance.gameObject.transform.Find("CustomInputField");
-                    if (inputField != null)
+                    if (Instance.wasStorageRackOpen)
                     {
 
+                        string labelText = Instance.customInputField.text;
+                        labelText = Regex.Replace(labelText, @"[\n\r]", "");
+                        string guid = Instance.openEntityGameObjectGUID;
+                        if (debug) MelonLogger.Msg($"Saved label: {labelText} for GUID: {guid}");
 
-                        if (Instance.wasStorageRackOpen)
+                        if (!string.IsNullOrEmpty(guid))
                         {
+                            Instance.unsavedLabelData.Labels[guid] = labelText;
 
-                            string labelText = Instance.customInputField.text;
-                            string guid = Instance.openEntityGameObjectGUID;
-                            if (debug) MelonLogger.Msg($"Saved label: {labelText} for GUID: {guid}");
-
-                            if (!string.IsNullOrEmpty(guid))
-                            {
-                                Instance.unsavedLabelData.Labels[guid] = labelText;
-
-                                Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openEntityGameObject, Instance.openEntityName);
-                            }
-
-                            Instance.wasStorageRackOpen = false; //Reset Flag
+                            Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openEntityGameObject, Instance.openEntityName);
                         }
+
+                        Instance.wasStorageRackOpen = false; //Reset Flag
                     }
-                }
-                catch (Exception ex)
-                {
-                    if (debug) MelonLogger.Msg($"Error during menu close: {ex.Message}");
-                }
+                
+            }
+            catch (Exception ex)
+            {
+                LoggerInstance.Error($"Error during menu close: {ex.Message}");
             }
 
-            
+
         }
 
         private void CreateInputField(GameObject parentUI)
         {
-            GameObject inputFieldGameObject = new GameObject("CustomInputField");
-            inputFieldGameObject.layer = 5; // UI layer
-            inputFieldGameObject.transform.SetParent(parentUI.transform, false);
+            try
+            {
+                GameObject inputFieldGameObject = new GameObject("CustomInputField");
+                inputFieldGameObject.layer = 5; // UI layer
+                inputFieldGameObject.transform.SetParent(parentUI.transform, false);
 
+                RectTransform rectTransform = inputFieldGameObject.AddComponent<RectTransform>();
+                rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+                rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                rectTransform.sizeDelta = new Vector2(550, 50);
 
-            RectTransform rectTransform = inputFieldGameObject.AddComponent<RectTransform>();
-            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            rectTransform.sizeDelta = new Vector2(500, 50); // 5x larger than before
+                var titleGameObject = GameObject.Find("UI/StorageMenu/Container/Title");
+                RectTransform titleRT = titleGameObject.GetComponent<RectTransform>();
+                Vector2 titlePos = titleRT.anchoredPosition;
+                Vector2 titleSize = titleRT.sizeDelta;
+                rectTransform.anchoredPosition = new Vector2(titlePos.x, titlePos.y - titleSize.y + 155); // More or less vertical spacing from title
 
-            var titleGameObject = GameObject.Find("UI/StorageMenu/Container/Title");
-            RectTransform titleRT = titleGameObject.GetComponent<RectTransform>();
-            Vector2 titlePos = titleRT.anchoredPosition;
-            Vector2 titleSize = titleRT.sizeDelta;
-            rectTransform.anchoredPosition = new Vector2(titlePos.x, titlePos.y - titleSize.y + 155); // More or less vertical spacing from title
+                Image bg = inputFieldGameObject.AddComponent<Image>();
+                bg.color = new Color(1, 1, 1, 0.9f);
 
+                Outline outline = inputFieldGameObject.AddComponent<Outline>();
+                outline.effectColor = new Color(0, 0, 0, 0.5f);
+                outline.effectDistance = new Vector2(2, 2);
 
-            Image bg = inputFieldGameObject.AddComponent<Image>();
-            bg.color = new Color(1, 1, 1, 0.9f);
+                GameObject textAreaGO = new GameObject("TextArea");
+                RectTransform textRT = textAreaGO.AddComponent<RectTransform>();
+                textRT.SetParent(inputFieldGameObject.transform, false);
+                textRT.anchorMin = Vector2.zero;
+                textRT.anchorMax = Vector2.one;
+                textRT.offsetMin = new Vector2(20, 10);
+                textRT.offsetMax = new Vector2(-20, -10);
 
+                GameObject placeholderGO = new GameObject("Placeholder");
+                RectTransform placeholderRT = placeholderGO.AddComponent<RectTransform>();
+                placeholderRT.SetParent(inputFieldGameObject.transform, false);
+                placeholderRT.anchorMin = Vector2.zero;
+                placeholderRT.anchorMax = Vector2.one;
+                placeholderRT.offsetMin = new Vector2(20, 10);
+                placeholderRT.offsetMax = new Vector2(-20, -10);
 
-            Outline outline = inputFieldGameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0, 0, 0, 0.5f);
-            outline.effectDistance = new Vector2(2, 2);
+                customInputField = inputFieldGameObject.AddComponent<TMP_InputField>();
 
+                var textComponent = textAreaGO.AddComponent<TextMeshProUGUI>();
+                textComponent.fontSize = 24; // Larger font
+                textComponent.color = Color.black;
+                textComponent.alignment = TextAlignmentOptions.Left;
+                textComponent.enableWordWrapping = false;
 
-            GameObject textAreaGO = new GameObject("TextArea");
-            RectTransform textRT = textAreaGO.AddComponent<RectTransform>();
-            textRT.SetParent(inputFieldGameObject.transform, false);
-            textRT.anchorMin = Vector2.zero;
-            textRT.anchorMax = Vector2.one;
-            textRT.offsetMin = new Vector2(20, 10);
-            textRT.offsetMax = new Vector2(-20, -10);
+                var placeholderText = placeholderGO.AddComponent<TextMeshProUGUI>();
+                placeholderText.text = "Label";
+                placeholderText.fontSize = 24; // Larger font
+                placeholderText.color = new Color(0.5f, 0.5f, 0.5f);
+                placeholderText.alignment = TextAlignmentOptions.Left;
+                placeholderText.enableWordWrapping = false;
 
+                customInputField.textViewport = textRT;
+                customInputField.textComponent = textComponent;
+                customInputField.placeholder = placeholderText;
+                customInputField.characterLimit = 30;
 
-            GameObject placeholderGO = new GameObject("Placeholder");
-            RectTransform placeholderRT = placeholderGO.AddComponent<RectTransform>();
-            placeholderRT.SetParent(inputFieldGameObject.transform, false);
-            placeholderRT.anchorMin = Vector2.zero;
-            placeholderRT.anchorMax = Vector2.one;
-            placeholderRT.offsetMin = new Vector2(20, 10);
-            placeholderRT.offsetMax = new Vector2(-20, -10);
+                customInputField.contentType = TMP_InputField.ContentType.Standard;
 
-
-            customInputField = inputFieldGameObject.AddComponent<TMP_InputField>();
-
-
-            var textComponent = textAreaGO.AddComponent<TextMeshProUGUI>();
-            textComponent.fontSize = 24; // Larger font
-            textComponent.color = Color.black;
-            textComponent.alignment = TextAlignmentOptions.Left;
-            textComponent.enableWordWrapping = false;
-
-
-            var placeholderText = placeholderGO.AddComponent<TextMeshProUGUI>();
-            placeholderText.text = "Label";
-            placeholderText.fontSize = 24; // Larger font
-            placeholderText.color = new Color(0.5f, 0.5f, 0.5f);
-            placeholderText.alignment = TextAlignmentOptions.Left;
-            placeholderText.enableWordWrapping = false;
-
-
-            customInputField.textViewport = textRT;
-            customInputField.textComponent = textComponent;
-            customInputField.placeholder = placeholderText;
-            customInputField.characterLimit = 25;
-
+                LoggerInstance.Msg("Custom input field created successfully");
+            }
+            catch (Exception ex) 
+            {
+                LoggerInstance.Error($"Failed to create input field: {ex.Message}");
+            }
         }
+        
 
         private void EnsureConfigDirectoryExists()
         {
@@ -406,19 +346,20 @@ namespace SimpleLabels
                 {
                     string json = File.ReadAllText(configFilePath);
                     config = JsonConvert.DeserializeObject<ModConfig>(json);
-                    if (debug) MelonLogger.Msg("Config loaded successfully");
+                    LoggerInstance.Msg("Config loaded successfully");
                 }
                 else
                 {
                     config = new ModConfig();
                     SaveConfig();
-                    if (debug) MelonLogger.Msg("Created new config file");
+                    LoggerInstance.Msg("Created new config file");
                 }
             }
             catch (Exception ex)
             {
                 config = new ModConfig();
-                MelonLogger.Error($"Failed to load config: {ex.Message}");
+                LoggerInstance.Error($"Failed to load config: {ex.Message}");
+                LoggerInstance.Warning("Using default config values");
             }
         }
 
@@ -444,18 +385,19 @@ namespace SimpleLabels
                 {
                     string json = File.ReadAllText(labelDataFilePath);
                     labelData = JsonConvert.DeserializeObject<LabelData>(json) ?? new LabelData();
-                    if (debug) MelonLogger.Msg("Label data loaded successfully");
+                    LoggerInstance.Msg($"Loaded label data with {labelData.Labels.Count} entries");
                 }
                 else
                 {
                     labelData = new LabelData();
-                    if (debug) MelonLogger.Msg("Created new label data file");
+                    LoggerInstance.Msg("Created new empty label data file");
                 }
             }
             catch (Exception ex)
             {
                 labelData = new LabelData();
-                MelonLogger.Error($"Failed to load label data: {ex.Message}");
+                LoggerInstance.Error($"Failed to load label data: {ex.Message}");
+                LoggerInstance.Warning("Using empty label data");
             }
         }
 
@@ -465,66 +407,75 @@ namespace SimpleLabels
             {
                 string json = JsonConvert.SerializeObject(labelData, Formatting.Indented);
                 File.WriteAllText(labelDataFilePath, json);
-                if (debug) MelonLogger.Msg("Label data saved successfully");
+                LoggerInstance.Msg($"Saved {labelData.Labels.Count} label entries");
             }
             catch (Exception ex)
             {
-                MelonLogger.Error($"Failed to save label data: {ex.Message}");
+                LoggerInstance.Error($"Failed to save label data: {ex.Message}");
             }
         }
 
         public void InitializeLabelPrefab()
         {
-            Instance.labelPrefab = new GameObject("LabelPrefab");
-            Instance.labelPrefab.SetActive(false);
-            Instance.labelPrefab.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
-
-            GameObject labelObject = new GameObject("LabelObject");
-            labelObject.transform.SetParent(Instance.labelPrefab.transform);
-            labelObject.transform.localPosition = Vector3.zero;
-            labelObject.transform.localScale = Vector3.one;
-
-            GameObject paperBackground = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            paperBackground.name = "PaperBackground";
-            paperBackground.transform.SetParent(labelObject.transform);
-            paperBackground.transform.localPosition = Vector3.zero;
-            paperBackground.transform.localScale = new Vector3(2f, 0.6f, 0.1f);
-
-            GameObject chemical_bottleObject = GameObject.Find("small chemical bottle/Lid"); //lmao
-            Material whitematte = chemical_bottleObject?.GetComponent<MeshRenderer>()?.material;
-            if (whitematte != null)
+            try
             {
-                paperBackground.GetComponent<Renderer>().material = whitematte;
+                Instance.labelPrefab = new GameObject("LabelPrefab");
+                Instance.labelPrefab.SetActive(false);
+                Instance.labelPrefab.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+
+                GameObject labelObject = new GameObject("LabelObject");
+                labelObject.transform.SetParent(Instance.labelPrefab.transform);
+                labelObject.transform.localPosition = Vector3.zero;
+                labelObject.transform.localScale = Vector3.one;
+
+                GameObject paperBackground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                paperBackground.name = "PaperBackground";
+                paperBackground.transform.SetParent(labelObject.transform);
+                paperBackground.transform.localPosition = Vector3.zero;
+                paperBackground.transform.localScale = new Vector3(2f, 0.6f, 0.1f);
+
+                GameObject chemical_bottleObject = GameObject.Find("small chemical bottle/Lid"); //lmao
+                Material whitematte = chemical_bottleObject?.GetComponent<MeshRenderer>()?.material;
+                if (whitematte != null)
+                {
+                    paperBackground.GetComponent<Renderer>().material = whitematte;
+                }
+                else
+                {
+                    LoggerInstance.Error("Couldn't find material to reuse!");
+                }
+
+                GameObject textObject = new GameObject("LabelText");
+                textObject.transform.SetParent(labelObject.transform);
+                textObject.transform.localPosition = new Vector3(0, 0, -0.051f);
+                textObject.transform.localScale = Vector3.one;
+
+                TextMeshPro textMesh = textObject.AddComponent<TextMeshPro>();
+                textMesh.fontSizeMin = 1.4f;
+                textMesh.fontSizeMax = 3;
+                textMesh.fontSize = 2;
+                textMesh.fontStyle = FontStyles.Bold;
+                textMesh.enableAutoSizing = true;
+                textMesh.alignment = TextAlignmentOptions.Center;
+                textMesh.color = Color.black;
+                textMesh.enableWordWrapping = true;
+                textMesh.margin = new Vector4(0.1f, 0.1f, 0.1f, 0.1f);
+
+                RectTransform textRect = textObject.GetComponent<RectTransform>();
+                // Keep the initial size, but the text will expand it vertically if needed
+                textRect.sizeDelta = new Vector2(1.8f, 0.5f);
+                textRect.anchorMin = new Vector2(0.5f, 0.5f);
+                textRect.anchorMax = new Vector2(0.5f, 0.5f);
+                textRect.pivot = new Vector2(0.5f, 0.5f);
+
+                LoggerInstance.Msg("Label prefab initialized successfully");
             }
-            else
+            catch (Exception ex)
             {
-                MelonLogger.Error("Couldn't find pillow material to reuse!");
+                LoggerInstance.Msg($"Failed to initialize label prefab: {ex.Message}");
             }
 
-            GameObject textObject = new GameObject("LabelText");
-            textObject.transform.SetParent(labelObject.transform);
-            textObject.transform.localPosition = new Vector3(0, 0, -0.051f);
-            textObject.transform.localScale = Vector3.one;
-
-            TextMeshPro textMesh = textObject.AddComponent<TextMeshPro>();
-            textMesh.fontSizeMin = 1.4f;
-            textMesh.fontSizeMax = 3;
-            textMesh.fontSize = 2;
-            textMesh.fontStyle = FontStyles.Bold;
-            textMesh.enableAutoSizing = true;
-            textMesh.alignment = TextAlignmentOptions.Center;
-            textMesh.color = Color.black;
-            textMesh.enableWordWrapping = true;
-            textMesh.overflowMode = TextOverflowModes.Truncate;
-            textMesh.margin = new Vector4(0.1f, 0.1f, 0.1f, 0.1f);
-
-            RectTransform textRect = textObject.GetComponent<RectTransform>();
-            textRect.sizeDelta = new Vector2(1.8f, 0.5f);
-            textRect.anchorMin = new Vector2(0.5f, 0.5f);
-            textRect.anchorMax = new Vector2(0.5f, 0.5f);
-            textRect.pivot = new Vector2(0.5f, 0.5f);
-
-            if (debug) MelonLogger.Msg("Label prefab initialized");
+            
         }
 
 
@@ -542,153 +493,254 @@ namespace SimpleLabels
 
                     if (objectName.Contains("StorageRack"))
                     {
-                        //MelonLogger.Msg($"[DEBUG] Loaded GridItem: {objectName} (GUID: {objectGuid})");
+                        if (debug) MelonLogger.Msg($"Processing storage rack: {objectName} (GUID: {objectGuid})");
 
-                        //ADD label prefab for this gameobject
-
-                        Instance.AddLabelPrefabToGameObject(GO, objectName, objectGuid);
-                        StorageTracker.TrackStorage(objectGuid, GO);
+                        try
+                        {
+                            Instance.AddLabelPrefabToGameObject(GO, objectName, objectGuid);
+                            StorageTracker.TrackStorage(objectGuid, GO);
+                        }
+                        catch (Exception ex)
+                        {
+                            Instance.LoggerInstance.Error($"Failed to process storage rack {objectName}: {ex.Message}");
+                        }
 
                     }
-
-
-
-
-
-
-                }
-                else
-                {
-                    MelonLogger.Warning($"[DEBUG] GridItem from '{mainPath}' is null.");
                 }
             }
         }
 
         public void AddLabelPrefabToGameObject(GameObject parentGO, string parentOBName, string parentOBGUID)
         {
-            // Define positions and rotations for each side
-            Vector3[] positions;
-            Quaternion[] rotations = new Quaternion[4];
-
-            if (parentOBName.Contains("Large"))
+            try
             {
-                positions = new Vector3[] {
+                // Validate inputs
+                if (parentGO == null)
+                {
+                    LoggerInstance.Error("Cannot add label prefab - parent GameObject is null");
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(parentOBGUID))
+                {
+                    LoggerInstance.Warning($"Cannot add label prefab - parent GameObject GUID is empty/null");
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(parentOBName))
+                {
+                    LoggerInstance.Warning($"Cannot add label prefab - parent GameObject Name is empty/null");
+                    return;
+                }
+
+                if (debug) MelonLogger.Msg($"Adding labels to {parentOBName} (GUID: {parentOBGUID})");
+
+                // Define positions and rotations for each side
+                Vector3[] positions;
+                Quaternion[] rotations = new Quaternion[4];
+
+                if (parentOBName.Contains("Large"))
+                {
+                    positions = new Vector3[] {
                         new Vector3(0, 0.750f, -0.254f),  // Front
                         new Vector3(1, 0.750f, 0),        // Right
                         new Vector3(0, 0.750f, 0.254f),   // Back
                         new Vector3(-1, 0.750f, 0)        // Left
                     };
-            }
-            else if (parentOBName.Contains("Medium"))
-            {
-                positions = new Vector3[] {
+                }
+                else if (parentOBName.Contains("Medium"))
+                {
+                    positions = new Vector3[] {
                         new Vector3(0, 0.750f, -0.254f),  // Front
                         new Vector3(0.75f, 0.750f, 0),   // Right
                         new Vector3(0, 0.750f, 0.254f),   // Back
                         new Vector3(-0.75f, 0.750f, 0)    // Left
                     };
-            }
-            else // Small
-            {
-                positions = new Vector3[] {
+                }
+                else // Small
+                {
+                    positions = new Vector3[] {
                         new Vector3(0, 0.750f, -0.254f),  // Front
                         new Vector3(0.50f, 0.750f, 0),    // Right
                         new Vector3(0, 0.750f, 0.254f),    // Back
                         new Vector3(-0.50f, 0.750f, 0)    // Left
                     };
-            }
+                }
 
-            rotations = new Quaternion[] {
+                rotations = new Quaternion[] {
                     Quaternion.Euler(0, 0, 0),      // Front
                     Quaternion.Euler(0, -90, 0),    // Right
                     Quaternion.Euler(0, 180, 0),    // Back
                     Quaternion.Euler(0, 90, 0)      // Left
                 };
 
-            // Create 4 labels (one for each side)
-            for (int i = 0; i < 4; i++)
-            {
-                // Instantiate the label prefab
-                GameObject labelInstance = GameObject.Instantiate(Instance.labelPrefab, parentGO.transform);
-                
-                
-                
-                // Set position and rotation
-                labelInstance.transform.localPosition = positions[i];
-                labelInstance.transform.localRotation = rotations[i];
-
-                // Set a unique name for each label
-                labelInstance.name = $"Label_{i}";
-
-                // Store reference to the text component for later updates
-                var textMesh = labelInstance.GetComponentInChildren<TextMeshPro>();
-
-                // Set initial text if we have saved data for this rack
-                
-                if (Instance.unsavedLabelData.Labels.TryGetValue(parentOBGUID, out string unsavedLabelText))
+                // Create 4 labels (one for each side)
+                int labelsCreated = 0;
+                for (int i = 0; i < 4; i++)
                 {
-                    textMesh.text = unsavedLabelText;
-                    labelInstance.SetActive(true);
+                    try
+                    {
+                        // Instantiate the label prefab
+                        GameObject labelInstance = GameObject.Instantiate(Instance.labelPrefab, parentGO.transform);
+
+                        if (labelInstance == null)
+                        {
+                            LoggerInstance.Error($"Failed to instantiate label {i} for {parentOBName}");
+                            continue;
+                        }
+
+                        labelInstance.transform.localPosition = positions[i];
+                        labelInstance.transform.localRotation = rotations[i];
+
+                        labelInstance.name = $"Label_{i}";
+
+                        var textMesh = labelInstance.GetComponentInChildren<TextMeshPro>();
+                        if (textMesh == null)
+                        {
+                            LoggerInstance.Warning($"Failed to find TextMeshPro component on label {i}");
+                            continue;
+                        }
+
+                        // Set initial text if we have saved data for this rack
+                        if (Instance.unsavedLabelData.Labels.TryGetValue(parentOBGUID, out string unsavedLabelText))
+                        {
+                            textMesh.text = unsavedLabelText;
+                            labelInstance.SetActive(true);
+                        }
+                        else if (Instance.labelData.Labels.TryGetValue(parentOBGUID, out string labelText))
+                        {
+                            textMesh.text = labelText;
+                            labelInstance.SetActive(true);
+                        }
+                        else
+                        {
+                            labelInstance.SetActive(false);
+                        }
+
+                        labelsCreated++;
+                    }
+                    catch (Exception ex)
+                    {
+                        LoggerInstance.Error($"Error creating label {i} for {parentOBName}: {ex.Message}");
+                    }
                 }
-                else if (Instance.labelData.Labels.TryGetValue(parentOBGUID, out string labelText))
-                {
-                    textMesh.text = labelText;
-                    labelInstance.SetActive(true);
-                }
+
+                if (debug) MelonLogger.Msg($"Successfully created {labelsCreated}/4 labels for {parentOBName}");
             }
-
+            catch (Exception ex)
+            {
+                LoggerInstance.Error($"Failed to add label prefab to {parentOBName}: {ex}");
+            }
         }
 
         public void UpdateLabelPrefabInGameObject(string GUID, string labelText, GameObject parentGO, string parentName)
         {
-            if (StorageTracker.StorageEntities.ContainsKey(GUID))
+            try
             {
-                // Check if the parentGO already contains a child GameObject called "LabelText"
+                if (string.IsNullOrEmpty(GUID))
+                {
+                    LoggerInstance.Warning("UpdateLabelPrefabInGameObject called with empty GUID");
+                    return;
+                }
+
+                if (parentGO == null)
+                {
+                    LoggerInstance.Error($"Cannot update labels - parent GameObject is null (GUID: {GUID})");
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(parentName))
+                {
+                    LoggerInstance.Warning("UpdateLabelPrefabInGameObject called with empty parentName");
+                    return;
+                }
+
+                if (debug) MelonLogger.Msg($"Updating labels for {parentName} (GUID: {GUID})");
+
+                if (!StorageTracker.StorageEntities.ContainsKey(GUID))
+                {
+                    LoggerInstance.Warning($"Storage entity {parentName} not tracked (GUID: {GUID})");
+                    return;
+                }
+
+                // Check for existing label prefabs
                 bool hasLabelPrefabs = parentGO.GetComponentsInChildren<Transform>(true)
                     .Any(child => child.gameObject.name == "LabelText");
 
+                if (debug) MelonLogger.Msg($"Label prefabs exist: {hasLabelPrefabs}");
+
                 if (!hasLabelPrefabs)
                 {
-                    // Add label prefabs if they don't exist
                     AddLabelPrefabToGameObject(parentGO, parentName, GUID);
+                    return; // New labels will initialize with the correct text
                 }
 
-                // Update the text of existing label prefabs
-                foreach (var labelObject in parentGO.GetComponentsInChildren<Transform>(true))
+                // Update existing labels
+                var labelObjects = parentGO.GetComponentsInChildren<Transform>(true)
+                    .Where(child => child.gameObject.name.StartsWith("Label_"));
+
+                foreach (var labelObject in labelObjects)
                 {
-                    if (labelObject.gameObject.name.StartsWith("Label_"))
+                    try
                     {
                         if (string.IsNullOrEmpty(labelText))
                         {
                             labelObject.gameObject.SetActive(false);
+                            if (debug) LoggerInstance.Msg($"Disabled label {labelObject.gameObject.name} (empty text)");
                         }
                         else
                         {
                             labelObject.gameObject.SetActive(true);
                             var textMesh = labelObject.GetComponentInChildren<TextMeshPro>(true);
+
                             if (textMesh != null)
                             {
                                 textMesh.text = labelText;
+                                if (debug) LoggerInstance.Msg($"Updated label {labelObject.gameObject.name} with text: {labelText}");
+                            }
+                            else
+                            {
+                                LoggerInstance.Warning($"TextMeshPro component missing on {labelObject.gameObject.name}");
                             }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        LoggerInstance.Error($"Failed to update label {labelObject.gameObject.name}: {ex.Message}");
+                    }
                 }
-
-
-
+            }
+            catch (Exception ex)
+            {
+                LoggerInstance.Error($"Failed to update label prefabs for {parentName} (GUID: {GUID}): {ex}");
             }
         }
 
-        public static class StorageTracker
+        public static class StorageTracker //Not used currently, may be useful later
         {
             public static Dictionary<string, GameObject> StorageEntities = new Dictionary<string, GameObject>();
 
             public static void TrackStorage(string guid, GameObject GO)
             {
+                if (string.IsNullOrEmpty(guid))
+                {
+                    Instance.LoggerInstance.Warning("Attempted to track storage with empty GUID");
+                    return;
+                }
+
+                if (GO == null)
+                {
+                    Instance.LoggerInstance.Warning($"Attempted to track null GameObject for GUID: {guid}");
+                    return;
+                }
+
                 if (!StorageEntities.ContainsKey(guid))
                 {
                     StorageEntities.Add(guid, GO);
-
+                }
+                else if (StorageEntities[guid] != GO)
+                {
+                    Instance.LoggerInstance.Warning($"GUID conflict detected: {guid} already tracked to different GameObject");
                 }
             }
 
@@ -698,10 +750,15 @@ namespace SimpleLabels
                 {
                     StorageEntities.Remove(guid);
                 }
+                else if (debug)
+                {
+                    Instance.LoggerInstance.Msg($"Attempted to untrack non-existent GUID: {guid}");
+                }
             }
 
             public static void UntrackAllStorage()
             {
+                int count = StorageEntities.Count;
                 StorageEntities.Clear();
             }
         }
@@ -717,9 +774,5 @@ namespace SimpleLabels
             public Dictionary<string, string> Labels { get; set; } = new Dictionary<string, string>();
         }
     }
-
-    
-
-    
 
 }
