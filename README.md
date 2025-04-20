@@ -5,6 +5,7 @@
 ## Features
 
 - **Custom Label Creation**: Generate personalized labels for various storage needs.
+- **Clipboard Support**: See your custom names right in the clipboard.
 - **User-Friendly Interface**: Simple and intuitive design for ease of use.
 - **Efficient Organization**: Streamline your storage system with clear labeling.
 
