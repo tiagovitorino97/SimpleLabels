@@ -40,7 +40,6 @@ C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\UnityEngine.UnityWebRequestM
 C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\Il2CppInterop.Common.dll
 C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\Il2CppAeLa.EasyFeedback.dll
 C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\Microsoft.Extensions.Logging.Abstractions.dll
-C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\System.Runtime.CompilerServices.Unsafe.dll
 C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\MonoMod.Utils.dll
 C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\MonoMod.RuntimeDetour.dll
 C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\bHapticsLib.dll
