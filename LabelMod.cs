@@ -128,12 +128,18 @@ namespace SimpleLabels
                     MelonLogger.Msg("Label prefab is not null.");
                 }
 
+                wasStorageRackOpen = false;
+                wasStationOpen = false;
+
             }
             else if (sceneName == "Menu")
             {
                 unsavedLabelData = new LabelData();
                 LabelTracker.UntrackAllStorage();
                 if (debug) MelonLogger.Msg("Cleared unsaved label data");
+
+                wasStorageRackOpen = false;
+                wasStationOpen = false;
             }
 
 
