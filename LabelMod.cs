@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Events;
@@ -63,9 +64,6 @@ namespace SimpleLabels
         //Label Prefab
         private GameObject labelPrefab;
 
-
-
-
         public override void OnInitializeMelon()
         {
             Instance = this;
@@ -104,48 +102,53 @@ namespace SimpleLabels
             modSettingsConsoleDebug = debugSettings.CreateEntry("Show console debug", false);
             modSettingsConsoleDebug.OnEntryValueChanged.Subscribe(modSettingsConsoleDebugOnChange);
 
+            SetupModManagerIntegration();
+
+        }
+
+        private void SetupModManagerIntegration()
+        {
             try
             {
-                // Try to get the ModManagerPhoneApp.ModSettingsEvents type via reflection
-                var modSettingsEventsType = Type.GetType("ModManagerPhoneApp.ModSettingsEvents, ModManagerPhoneApp");
-
-                if (modSettingsEventsType != null)
+                // Try to find the ModManagerPhoneApp type
+                Type modSettingsType = null;
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
                 {
-                    var eventInfo = modSettingsEventsType.GetEvent("OnPreferencesSaved");
+                    modSettingsType = asm.GetType("ModManagerPhoneApp.ModSettingsEvents");
+                    if (modSettingsType != null)
+                    {
+                        break;
+                    }
+                }
 
-                    var handler = Delegate.CreateDelegate(eventInfo.EventHandlerType, this, "colorPickerUpdateUserColor");
+                if (modSettingsType != null)
+                {
+                    // Get the event
+                    var evt = modSettingsType.GetEvent("OnPreferencesSaved", BindingFlags.Static | BindingFlags.Public);
+                    if (evt != null)
+                    {
+                        // Create a delegate for our handler
+                        Delegate handler = Delegate.CreateDelegate(evt.EventHandlerType, this, nameof(colorPickerUpdateUserColor));
 
-                    eventInfo.AddEventHandler(null, handler);
+                        // Subscribe to the event
+                        evt.AddEventHandler(null, handler);
 
-                    LoggerInstance.Msg("Successfully subscribed to Mod Manager save event.");
+                        LoggerInstance.Msg("Successfully subscribed to ModManagerPhoneApp's OnPreferencesSaved event");
+                    }
+                    else
+                    {
+                        LoggerInstance.Msg("ModManagerPhoneApp found but OnPreferencesSaved event not found");
+                    }
                 }
                 else
                 {
-                    LoggerInstance.Msg("Mod Manager not found - skipping event subscription");
+                    LoggerInstance.Msg("ModManagerPhoneApp not found - optional integration will not be available");
                 }
             }
             catch (Exception ex)
             {
-                LoggerInstance.Warning($"Could not subscribe to Mod Manager event (Mod Manager may not be installed/compatible): {ex.Message}");
+                LoggerInstance.Error($"Error setting up ModManagerPhoneApp integration: {ex}");
             }
-        }
-
-        public override void OnDeinitializeMelon()
-        {
-            try
-            {
-                var modSettingsEventsType = Type.GetType("ModManagerPhoneApp.ModSettingsEvents, ModManagerPhoneApp");
-
-                if (modSettingsEventsType != null)
-                {
-                    var eventInfo = modSettingsEventsType.GetEvent("OnPreferencesSaved");
-                    var handler = Delegate.CreateDelegate(eventInfo.EventHandlerType, this, "colorPickerUpdateUserColor");
-                    eventInfo.RemoveEventHandler(null, handler);
-
-                    LoggerInstance.Msg("Unsubscribed from Mod Manager save event.");
-                }
-            }
-            catch { /* Ignore errors */ }
         }
 
         public void InitializeColorSettings()
@@ -317,18 +320,22 @@ namespace SimpleLabels
         {
             modSettingsAutoFocusLabel.Value = newValue;
         }
+        
         private void modSettingsConsoleDebugOnChange(bool oldValue, bool newValue)
         {
             modSettingsConsoleDebug.Value = newValue;
         }
+        
         private void modSettingsShowInputLabelOnChange(bool oldValue, bool newValue)
         {
             modSettingsShowClipboardRoutesLabels.Value = newValue;
         }
+        
         private void modSettingsShowClipboardRoutesLabelsOnChange(bool oldValue, bool newValue)
         {
             modSettingsShowClipboardRoutesLabels.Value = newValue;
         }
+        
         private void modSettingsShowClipboardStationsLabelsOnChange(bool oldValue, bool newValue)
         {
             modSettingsShowClipboardStationsLabels.Value = newValue;
@@ -373,7 +380,7 @@ namespace SimpleLabels
 
         public void ActivateSimpleLabelsMod()
         {
-           
+
             MelonCoroutines.Start(WaitAndSubscribe());
             InitializeLabelPrefab();
 
@@ -384,12 +391,12 @@ namespace SimpleLabels
                 LoggerInstance.Error("Could not find the 'UI/StorageMenu' GameObject.");
                 return;
             }
-           
+
 
             customStorageInputField = CreateInputField(storageUI, new Vector2(0.5f, 0.65f));
             CreateColorPicker(customStorageInputField);
             if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Label input field created for StorageMenu.");
-            
+
 
             // Create all the station custom input fields
             GameObject stationsUI = GameObject.Find("UI/Stations");
@@ -398,7 +405,7 @@ namespace SimpleLabels
                 LoggerInstance.Error("Could not find the 'UI/Stations' GameObject.");
                 return;
             }
-            
+
             foreach (string stationName in stationNames)
             {
                 Transform stationTransform = stationsUI.transform.Find(stationName);
@@ -421,6 +428,7 @@ namespace SimpleLabels
             wasStorageRackOpen = false;
             wasStationOpen = false;
         }
+        
         public void DeactivateSimpleLabelsMod()
         {
             unsavedLabelData = new LabelData();
@@ -1019,10 +1027,6 @@ namespace SimpleLabels
             }
         }
 
-
-
-
-
         private TMP_InputField CreateInputField(GameObject parentUI, Vector2 vector)
         {
             try
@@ -1118,7 +1122,7 @@ namespace SimpleLabels
 
                 // Calculate the vertical position to be below the input field
                 float inputFieldHeight = inputFieldRT.rect.height;
-                rectTransform.anchoredPosition = new Vector2(0, -inputFieldHeight / 2 -30); // Position 30 units below the bottom of the input field
+                rectTransform.anchoredPosition = new Vector2(0, -inputFieldHeight / 2 - 30); // Position 30 units below the bottom of the input field
 
                 // Add background (optional)
                 Image bg = colorPickerGO.AddComponent<Image>();
@@ -1397,15 +1401,15 @@ namespace SimpleLabels
                             Color color;
                             try
                             {
-                                ColorUtility.TryParseHtmlString("#" + labelInfo.Color, out  color);
+                                ColorUtility.TryParseHtmlString("#" + labelInfo.Color, out color);
                             }
                             catch
                             {
                                 color = Color.white;
                             }
-                            
-                            
-                            
+
+
+
                             Instance.AddLabelPrefabToGameObject(GO, objectName, objectGuid, color);
                             LabelTracker.TrackStorage(objectGuid, GO, initialLabelText);
                         }
@@ -1698,7 +1702,7 @@ namespace SimpleLabels
                             {
                                 textMesh.text = labelText;
                                 if (Instance.modSettingsConsoleDebug.Value) LoggerInstance.Msg($"Updated label {labelObject.gameObject.name} with text: {labelText}");
-                                if(material != null)
+                                if (material != null)
                                 {
                                     material.color = color;
                                 }
@@ -1749,7 +1753,7 @@ namespace SimpleLabels
                 };
             return allowedNames.Contains(storageName);
         }
-        
+
 
         public static class LabelTracker
         {
@@ -1838,8 +1842,6 @@ namespace SimpleLabels
             }
         }
 
-
-
         [Serializable]
         public class LabelInfo
         {
@@ -1852,6 +1854,7 @@ namespace SimpleLabels
                 Color = color;
             }
         }
+
         [Serializable]
         public class LabelData
         {
