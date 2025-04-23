@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 
 
-[assembly: MelonInfo(typeof(LabelMod), "Simple Labels", "1.0.0", "Tiago")]
+[assembly: MelonInfo(typeof(LabelMod), "SimpleLabels", "1.1.2", "Tiago")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information

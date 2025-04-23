@@ -52,6 +52,9 @@
     <Reference Include="MelonLoader">
       <HintPath>..\..\..\..\Desktop\Schedule I\MelonLoader\net35\MelonLoader.dll</HintPath>
     </Reference>
+    <Reference Include="ModManager&amp;PhoneApp">
+      <HintPath>..\..\..\..\Desktop\Schedule I\Mods\ModManager&amp;PhoneApp.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>..\..\..\..\Desktop\Schedule I\MelonLoader\net6\Newtonsoft.Json.dll</HintPath>
     </Reference>
@@ -75,6 +78,10 @@
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
       <HintPath>..\..\..\..\Desktop\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\Desktop\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.TextRenderingModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>

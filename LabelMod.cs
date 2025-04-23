@@ -12,6 +12,7 @@ using Il2CppScheduleOne.UI.Stations;
 using Il2CppTMPro;
 using MelonLoader;
 using MelonLoader.Utils;
+using ModManagerPhoneApp;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,8 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using static Il2CppScheduleOne.Management.SetterScreens.ItemSetterScreen;
+using static SimpleLabels.LabelMod;
 
 
 namespace SimpleLabels
@@ -28,10 +31,8 @@ namespace SimpleLabels
     public class LabelMod : MelonMod
     {
         public static LabelMod Instance { get; private set; }
-        private static readonly bool debug = true;
-        private TMP_InputField customStorageInputField;
-        //private TMP_InputField customStationInputFields["MixingStation"];
 
+        private TMP_InputField customStorageInputField;
         private Dictionary<string, TMP_InputField> customStationInputFields = new Dictionary<string, TMP_InputField>();
         private string[] stationNames = { "MixingStation", "PackagingStation", "DryingRack", "BrickPress", "Cauldron", "LabOven", "ChemistryStation" };
 
@@ -42,10 +43,20 @@ namespace SimpleLabels
         private string openEntityGameObjectGUID;
         private string openEntityName;
 
-        //Mod Config
-        private ModConfig config;
-        private string configFolderPath;
-        private string configFilePath;
+        //Mod Data
+        private string dataFolderPath;
+
+        //Mod settings
+        private MelonPreferences_Category mainSettings;
+        private MelonPreferences_Category clipboardSettings;
+        private MelonPreferences_Category colorSettings;
+        private MelonPreferences_Category debugSettings;
+        private MelonPreferences_Entry<bool> modSettingsAutoFocusLabel;
+        private MelonPreferences_Entry<bool> modSettingsConsoleDebug;
+        private MelonPreferences_Entry<bool> modSettingsShowInputLabel;
+        private MelonPreferences_Entry<bool> modSettingsShowClipboardRoutesLabels;
+        private MelonPreferences_Entry<bool> modSettingsShowClipboardStationsLabels;
+        private Dictionary<string, MelonPreferences_Entry<string>> modSettingsColors = new Dictionary<string, MelonPreferences_Entry<string>>();
 
         //Label Data
         private LabelData labelData;
@@ -56,98 +67,377 @@ namespace SimpleLabels
         private GameObject labelPrefab;
 
 
+
+
         public override void OnInitializeMelon()
         {
             Instance = this;
             LoggerInstance.Msg("SimpleLabels mod initializing...");
 
             //Mod Config
-            configFolderPath = Path.Combine(MelonEnvironment.ModsDirectory, "SimpleLabels");
-            configFilePath = Path.Combine(configFolderPath, "Config.json");
-            EnsureConfigDirectoryExists();
-            LoadConfig();
+            dataFolderPath = Path.Combine(MelonEnvironment.ModsDirectory, "SimpleLabels");
+            EnsureDataDirectoryExists();
 
             //Label Data
-            labelDataFilePath = Path.Combine(configFolderPath, "Labels.json");
+            labelDataFilePath = Path.Combine(dataFolderPath, "Labels.json");
             unsavedLabelData = new LabelData();
 
             MelonCoroutines.Start(WaitAndHook());
+
+            mainSettings = MelonPreferences.CreateCategory("SimpleLabels_01_Main", "Main Settings");
+
+            modSettingsAutoFocusLabel = mainSettings.CreateEntry("Input label auto-focus", true);
+            modSettingsAutoFocusLabel.OnEntryValueChanged.Subscribe(modSettingsAutoFocusLabelOnChange);
+
+            modSettingsShowInputLabel = mainSettings.CreateEntry("Show input label", true);
+            modSettingsShowInputLabel.OnEntryValueChanged.Subscribe(modSettingsShowInputLabelOnChange);
+
+            clipboardSettings = MelonPreferences.CreateCategory("SimpleLabels_02_Clipboard", "Clipboard Options");
+
+            modSettingsShowClipboardRoutesLabels = clipboardSettings.CreateEntry("Routes names", true);
+            modSettingsShowClipboardRoutesLabels.OnEntryValueChanged.Subscribe(modSettingsShowClipboardRoutesLabelsOnChange);
+
+            modSettingsShowClipboardStationsLabels = clipboardSettings.CreateEntry("Stations names", true);
+            modSettingsShowClipboardStationsLabels.OnEntryValueChanged.Subscribe(modSettingsShowClipboardStationsLabelsOnChange);
+
+            colorSettings = MelonPreferences.CreateCategory("SimpleLabels_03_Colors", "Colors");
+            InitializeColorSettings();
+
+            debugSettings = MelonPreferences.CreateCategory("SimpleLabels_04_Debug", "Debug");
+            modSettingsConsoleDebug = debugSettings.CreateEntry("Show console debug", false);
+            modSettingsConsoleDebug.OnEntryValueChanged.Subscribe(modSettingsConsoleDebugOnChange);
+
+            try
+            {
+                ModManagerPhoneApp.ModSettingsEvents.OnPreferencesSaved += colorPickerUpdateUserColor;
+                LoggerInstance.Msg("Successfully subscribed to Mod Manager save event.");
+            }
+            catch (Exception ex) 
+            {
+                LoggerInstance.Warning($"Could not subscribe to Mod Manager event (Mod Manager may not be installed/compatible): {ex.Message}");
+            }
+        }
+
+        public override void OnDeinitializeMelon()
+        {
+            try
+            {
+                ModManagerPhoneApp.ModSettingsEvents.OnPreferencesSaved -= colorPickerUpdateUserColor;
+
+                LoggerInstance.Msg("Unsubscribed from Mod Manager save event.");
+            }
+            catch { /* Ignore errors */ }
+        }
+
+        public void InitializeColorSettings()
+        {
+            string[] colorSettingNames =
+                {
+            "Color 1", "Color 2", "Color 3", "Color 4", "Color 5",
+            "Color 6", "Color 7", "Color 8", "Color 9"
+        };
+
+            Color[] colors = new Color[]
+                {
+            Color.white,                                     // Pure White
+            new Color(1f, 0.8f, 0.6f),                      // Light Orange-Yellow
+            new Color(0.7f, 0.9f, 0.7f),                      // Light Mint Green
+            new Color(0.6f, 0.8f, 1f),                      // Light Blue
+            new Color(1f, 0.7f, 0.85f),                     // Light Pink
+            new Color(0.9f, 0.75f, 0.5f),                    // Muted Gold
+            new Color(0.75f, 0.65f, 0.9f),                   // Light Lavender
+            new Color(0.6f, 0.85f, 0.6f),                    // Soft Lime Green
+            new Color(0.85f, 0.85f, 0.85f)                   // Very Light Grey
+                };
+
+            for (int i = 0; i < colorSettingNames.Length; i++)
+            {
+                var currentColorIndex = i; // Create a local copy of 'i'
+                var entry = colorSettings.CreateEntry(colorSettingNames[i], ColorUtility.ToHtmlStringRGB(colors[i]));
+                modSettingsColors.Add(colorSettingNames[i], entry);
+
+                // Subscribe to a single change event handler, using the captured local copy
+                entry.OnEntryValueChanged.Subscribe((oldValue, newValue) => OnColorSettingChanged(oldValue, newValue, currentColorIndex));
+            }
+        }
+
+        public void colorPickerUpdateUserColor()
+        {
+            MelonCoroutines.Start(UpdateColorsAfterDelay());
+        }
+
+        private System.Collections.IEnumerator UpdateColorsAfterDelay()
+        {
+            yield return new WaitForSeconds(0.2f);
+
+            // Update colors for customStorageInputField
+            if (customStorageInputField != null)
+            {
+                var colorPickerObj = customStorageInputField.transform.Find("ColorPicker");
+                if (colorPickerObj != null)
+                {
+                    int colorIndex = 0;
+                    foreach (var child in colorPickerObj.transform)
+                    {
+                        // Use TryCast instead of direct cast
+                        var colorButton = child.Cast<Transform>();
+                        if (colorButton == null)
+                        {
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Skipping child: Unable to cast {child.GetType()} to Transform");
+                            continue;
+                        }
+
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Iterating through colorButton: {colorButton.name}");
+                        if (colorButton.name.StartsWith("ColorButton_") && colorIndex < modSettingsColors.Count)
+                        {
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Found ColorButton with correct prefix. Checking modSettingsColors at index: {colorIndex}");
+                            if (modSettingsColors.ElementAt(colorIndex).Value != null)
+                            {
+                                string hexColor = "#" + modSettingsColors.ElementAt(colorIndex).Value.Value;
+                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Attempting to parse color: {hexColor}");
+                                if (ColorUtility.TryParseHtmlString(hexColor, out Color color))
+                                {
+                                    var imageComponent = colorButton.GetComponent<Image>();
+                                    if (imageComponent != null)
+                                    {
+                                        imageComponent.color = color;
+                                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Updated color of {colorButton.name} to {color}");
+                                    }
+                                    else
+                                    {
+                                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Image component not found on {colorButton.name}");
+                                    }
+                                }
+                                else
+                                {
+                                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Error($"Failed to parse color string: {hexColor}");
+                                }
+                            }
+                            else
+                            {
+                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"modSettingsColors[{colorIndex}].Value is null.");
+                            }
+                            colorIndex++;
+                        }
+                    }
+                }
+                else
+                {
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning("ColorPicker transform not found for customStorageInputField.");
+                }
+            }
+
+            // Update colors for customStationInputFields
+            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Iterating through customStationInputFields. Count: {customStationInputFields?.Count}");
+            foreach (var stationInputField in customStationInputFields)
+            {
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Processing stationInputField with key: {stationInputField.Key}, Value: {stationInputField.Value?.name}");
+                if (stationInputField.Value != null)
+                {
+                    var colorPickerObj = stationInputField.Value.transform.Find("ColorPicker");
+                    if (colorPickerObj != null)
+                    {
+                        int colorIndex = 0;
+                        foreach (var child in colorPickerObj.transform)
+                        {
+                            // Use TryCast instead of direct cast
+                            var colorButton = child.Cast<Transform>();
+                            if (colorButton == null)
+                            {
+                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Skipping child: Unable to cast {child.GetType()} to Transform");
+                                continue;
+                            }
+
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Iterating through colorButton: {colorButton.name}, Index: {colorIndex}");
+                            if (colorButton.name.StartsWith("ColorButton_") && colorIndex < modSettingsColors.Count)
+                            {
+                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Found ColorButton with correct prefix. Checking modSettingsColors at index: {colorIndex}");
+                                if (modSettingsColors.ElementAt(colorIndex).Value != null)
+                                {
+                                    string hexColor = "#" + modSettingsColors.ElementAt(colorIndex).Value.Value;
+                                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Attempting to parse color: {hexColor}");
+                                    if (ColorUtility.TryParseHtmlString(hexColor, out Color color))
+                                    {
+                                        var imageComponent = colorButton.GetComponent<Image>();
+                                        if (imageComponent != null)
+                                        {
+                                            imageComponent.color = color;
+                                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Updated color of {colorButton.name} for {stationInputField.Value.name} to {color}");
+                                        }
+                                        else
+                                        {
+                                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Image component not found on {colorButton.name} for {stationInputField.Value.name}");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Error($"Failed to parse color string for {stationInputField.Value.name}: {hexColor}");
+                                    }
+                                }
+                                else
+                                {
+                                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"modSettingsColors[{colorIndex}].Value is null for {stationInputField.Value.name}.");
+                                }
+                                colorIndex++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"ColorPicker transform not found for {stationInputField.Value?.name}.");
+                    }
+                }
+                else
+                {
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning("stationInputField.Value is null.");
+                }
+            }
+        }
+
+        private void modSettingsAutoFocusLabelOnChange(bool oldValue, bool newValue)
+        {
+            modSettingsAutoFocusLabel.Value = newValue;
+        }
+        private void modSettingsConsoleDebugOnChange(bool oldValue, bool newValue)
+        {
+            modSettingsConsoleDebug.Value = newValue;
+        }
+        private void modSettingsShowInputLabelOnChange(bool oldValue, bool newValue)
+        {
+            modSettingsShowClipboardRoutesLabels.Value = newValue;
+        }
+        private void modSettingsShowClipboardRoutesLabelsOnChange(bool oldValue, bool newValue)
+        {
+            modSettingsShowClipboardRoutesLabels.Value = newValue;
+        }
+        private void modSettingsShowClipboardStationsLabelsOnChange(bool oldValue, bool newValue)
+        {
+            modSettingsShowClipboardStationsLabels.Value = newValue;
+        }
+
+        private void OnColorSettingChanged(string oldValue, string newValue, int index)
+        {
+
+            if (Instance.modSettingsConsoleDebug.Value)
+                MelonLogger.Msg($"Color setting '{modSettingsColors.ElementAt(index)}' changed from '{oldValue}' to '{newValue}'");
+
+            if (Regex.IsMatch(newValue, @"^[0-9A-Fa-f]{6}$"))
+            {
+                modSettingsColors.ElementAt(index).Value.Value = newValue;
+                if (Instance.modSettingsConsoleDebug.Value)
+                    MelonLogger.Msg($"New value '{newValue}' is a valid HTML color string and has been set.");
+            }
+            else
+            {
+                modSettingsColors.ElementAt(index).Value.Value = oldValue;
+                if (Instance.modSettingsConsoleDebug.Value)
+                    MelonLogger.Warning($"New value '{newValue}' is not a valid HTML color string. String has been set to old value.");
+            }
 
         }
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
-            if (debug) MelonLogger.Msg($"Scene loaded: {sceneName}");
 
-            if (sceneName == "Main")
-            {
-                MelonCoroutines.Start(WaitAndSubscribe());
-                InitializeLabelPrefab();
-
-                GameObject storageUI = GameObject.Find("UI/StorageMenu");
-                if (storageUI != null)
-                {
-                    customStorageInputField = CreateInputField(storageUI);
-                    if (debug) MelonLogger.Msg("Label input field created for StorageMenu.");
-
-                }
-
-                // Create all the station custom input fields
-                GameObject stationsUI = GameObject.Find("UI/Stations");
-                if (stationsUI == null)
-                {
-                    MelonLogger.Error("Could not find the 'UI/Stations' GameObject.");
-                    return;
-                }
-
-                foreach (string stationName in stationNames)
-                {
-                    Transform stationTransform = stationsUI.transform.Find(stationName);
-                    if (stationTransform != null)
-                    {
-                        customStationInputFields[stationName] = CreateInputField(stationTransform.gameObject);
-                        if (debug) MelonLogger.Msg($"Label input field created for {stationName}.");
-                    }
-                    else
-                    {
-                        MelonLogger.Warning($"Could not find UI for {stationName}.");
-                    }
-                }
-
-
-
-                LoadLabelData();
-
-
-                if (labelPrefab == null)
-                {
-                    MelonLogger.Error("Label prefab is null!");
-                }
-                else
-                {
-                    MelonLogger.Msg("Label prefab is not null.");
-                }
-
-                wasStorageRackOpen = false;
-                wasStationOpen = false;
-
-            }
-            else if (sceneName == "Menu")
-            {
-                unsavedLabelData = new LabelData();
-                LabelTracker.UntrackAllStorage();
-                if (debug) MelonLogger.Msg("Cleared unsaved label data");
-
-                wasStorageRackOpen = false;
-                wasStationOpen = false;
-            }
-
+            //MAYBE USEFUL IN THE FUTURE
 
         }
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
-            if (debug) MelonLogger.Msg($"Scene loaded: {sceneName}");
+            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Scene loaded: {sceneName}");
+
+            if (sceneName == "Main") ActivateSimpleLabelsMod();
+
+            else if (sceneName == "Menu") DeactivateSimpleLabelsMod();
+        }
+
+        public void ActivateSimpleLabelsMod()
+        {
+           
+            MelonCoroutines.Start(WaitAndSubscribe());
+            InitializeLabelPrefab();
+
+            GameObject storageUI = GameObject.Find("UI/StorageMenu");
+
+            if (storageUI == null)
+            {
+                LoggerInstance.Error("Could not find the 'UI/StorageMenu' GameObject.");
+                return;
+            }
+           
+
+            customStorageInputField = CreateInputField(storageUI, new Vector2(0.5f, 0.65f));
+            CreateColorPicker(customStorageInputField);
+            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Label input field created for StorageMenu.");
+            
+
+            // Create all the station custom input fields
+            GameObject stationsUI = GameObject.Find("UI/Stations");
+            if (stationsUI == null)
+            {
+                LoggerInstance.Error("Could not find the 'UI/Stations' GameObject.");
+                return;
+            }
+            
+            foreach (string stationName in stationNames)
+            {
+                Transform stationTransform = stationsUI.transform.Find(stationName);
+                if (stationTransform != null)
+                {
+                    customStationInputFields[stationName] = CreateInputField(stationTransform.gameObject, new Vector2(0.5f, 0.55f));
+                    CreateColorPicker(customStationInputFields[stationName]);
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Label input field created for {stationName}.");
+                }
+                else
+                {
+                    LoggerInstance.Warning($"Could not find UI for {stationName}.");
+                }
+            }
+
+
+
+            LoadLabelData();
+
+            wasStorageRackOpen = false;
+            wasStationOpen = false;
+        }
+        public void DeactivateSimpleLabelsMod()
+        {
+            unsavedLabelData = new LabelData();
+            LabelTracker.UntrackAllStorage();
+            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Cleared unsaved label data");
+
+            wasStorageRackOpen = false;
+            wasStationOpen = false;
+
+            // Destroy all created prefabs
+            if (labelPrefab != null)
+            {
+                GameObject.Destroy(labelPrefab);
+                labelPrefab = null;
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Destroyed label prefab.");
+            }
+
+            // Destroy all custom input fields
+            if (customStorageInputField != null)
+            {
+                GameObject.Destroy(customStorageInputField.gameObject);
+                customStorageInputField = null;
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Destroyed custom storage input field.");
+            }
+
+            foreach (var inputField in customStationInputFields.Values)
+            {
+                if (inputField != null)
+                {
+                    GameObject.Destroy(inputField.gameObject);
+                }
+            }
+            customStationInputFields.Clear();
+
+
+            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Destroyed all custom station input fields.");
         }
 
 
@@ -171,7 +461,7 @@ namespace SimpleLabels
 
             foreach (var guid in unsavedLabelData.Labels.Keys)
             {
-                if (string.IsNullOrEmpty(unsavedLabelData.Labels[guid]))// Remove any empty strings 
+                if (string.IsNullOrEmpty(unsavedLabelData.Labels[guid]?.Text))// Remove any empty strings 
                 {
                     labelData.Labels.Remove(guid);
                 }
@@ -179,7 +469,7 @@ namespace SimpleLabels
 
             SaveLabelData();
 
-            if (debug) MelonLogger.Msg("Saved all label changes");
+            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Saved all label changes");
         }
 
 
@@ -189,7 +479,10 @@ namespace SimpleLabels
 
             static void Postfix(StorageMenu __instance, StorageEntity entity)
             {
-                if (debug) MelonLogger.Msg($"Storage menu opened for: {entity?.StorageEntityName}");
+
+                if (!Instance.modSettingsShowInputLabel.Value) return;
+
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Storage menu opened for: {entity?.StorageEntityName}");
 
                 if (entity is UnityEngine.Component component && component.gameObject != null)
                 {
@@ -202,55 +495,62 @@ namespace SimpleLabels
                         if (placeableStorage != null)
                         {
                             Instance.openEntityGameObjectGUID = placeableStorage.GUID.ToString();
-                            if (debug) MelonLogger.Msg($"StorageEntity GUID: {Instance.openEntityGameObjectGUID}");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"StorageEntity GUID: {Instance.openEntityGameObjectGUID}");
                         }
                         else if (surfaceStorage != null)
                         {
                             Instance.openEntityGameObjectGUID = surfaceStorage.GUID.ToString();
-                            if (debug) MelonLogger.Msg($"StorageEntity GUID: {Instance.openEntityGameObjectGUID}");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"StorageEntity GUID: {Instance.openEntityGameObjectGUID}");
                         }
                         else
                         {
-                            if (debug) MelonLogger.Warning($"PlaceableStorageEntity component not found on {entity.StorageEntityName}");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"PlaceableStorageEntity component not found on {entity.StorageEntityName}");
                             Instance.openEntityGameObjectGUID = null; // Ensure GUID is null if component is missing
                         }
                     }
                     catch (Exception ex)
                     {
-                        if (debug) MelonLogger.Error($"Error accessing GameObject or PlaceableStorageEntity: {ex.Message}");
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Error($"Error accessing GameObject or PlaceableStorageEntity: {ex.Message}");
                         Instance.openEntityGameObjectGUID = null; // Ensure GUID is null on error
                     }
 
                     if (!string.IsNullOrEmpty(Instance.openEntityGameObjectGUID) && Instance.IsValidStorageName(entity.StorageEntityName))
                     {
-                        __instance.gameObject.transform.Find("CustomInputField").gameObject.SetActive(true); //Show input field
+                        Instance.customStorageInputField.gameObject.SetActive(true); //Show input field
 
                         // Load existing label if it exists
-                        if (Instance.unsavedLabelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out string existingUnsavedLabel))
+                        if (Instance.unsavedLabelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out LabelInfo existingUnsavedLabelInfo))
                         {
-                            Instance.customStorageInputField.text = existingUnsavedLabel;
-                            if (debug) MelonLogger.Msg($"Loaded existing unsaved label: {existingUnsavedLabel}");
+                            Instance.customStorageInputField.text = existingUnsavedLabelInfo.Text;
+                            ColorUtility.TryParseHtmlString("#" + existingUnsavedLabelInfo.Color, out Color color);
+                            Instance.customStorageInputField.GetComponent<Image>().color = color;
+                            if (Instance.modSettingsConsoleDebug.Value)
+                                MelonLogger.Msg($"Loaded existing unsaved label: {existingUnsavedLabelInfo.Text}");
                         }
-                        else if (Instance.labelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out string existingLabel))
+                        else if (Instance.labelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out LabelInfo existingLabelInfo))
                         {
-                            Instance.customStorageInputField.text = existingLabel;
-                            if (debug) MelonLogger.Msg($"Loaded existing label: {existingLabel}");
+                            Instance.customStorageInputField.text = existingLabelInfo.Text;
+                            ColorUtility.TryParseHtmlString("#" + existingLabelInfo.Color, out Color color);
+                            Instance.customStorageInputField.GetComponent<Image>().color = color;
+                            if (Instance.modSettingsConsoleDebug.Value)
+                                MelonLogger.Msg($"Loaded existing label: {existingLabelInfo.Text}");
                         }
                         else
                         {
                             Instance.customStorageInputField.text = string.Empty;
+                            Instance.customStorageInputField.GetComponent<Image>().color = Color.white;
                         }
 
-                        if (Instance.config.AutoFocus) //Variable from config file
+                        if (Instance.modSettingsAutoFocusLabel.Value)
                         {
-                            if (debug) MelonLogger.Msg("Focusing on input field.");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Focusing on input field.");
                             var inputField = __instance.gameObject.transform.Find("CustomInputField")?.GetComponent<TMP_InputField>();
                             inputField?.Select();
                             inputField?.ActivateInputField();
                         }
                         else
                         {
-                            if (debug) MelonLogger.Msg("Not focusing on input field.");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Not focusing on input field.");
                         }
 
                         Instance.wasStorageRackOpen = true;
@@ -258,16 +558,16 @@ namespace SimpleLabels
                     }
                     else
                     {
-                        if (debug && entity != null) MelonLogger.Msg($"StorageEntity {entity.StorageEntityName} is not a target for labeling or its GameObject is null.");
+                        if (Instance.modSettingsConsoleDebug.Value && entity != null) MelonLogger.Msg($"StorageEntity {entity.StorageEntityName} is not a target for labeling or its GameObject is null.");
                         if (entity != null && !(entity is UnityEngine.Component))
                         {
-                            if (debug) MelonLogger.Msg($"StorageEntity '{entity.StorageEntityName}' is not a UnityEngine.Component.");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"StorageEntity '{entity.StorageEntityName}' is not a UnityEngine.Component.");
                         }
                     }
                 }
                 else
                 {
-                    if (debug && entity != null) MelonLogger.Msg($"StorageEntity '{entity.StorageEntityName}' is not a UnityEngine.Component or its GameObject is null.");
+                    if (Instance.modSettingsConsoleDebug.Value && entity != null) MelonLogger.Msg($"StorageEntity '{entity.StorageEntityName}' is not a UnityEngine.Component or its GameObject is null.");
                 }
             }
         }
@@ -282,7 +582,9 @@ namespace SimpleLabels
 
         private void OnStorageMenuClosed()
         {
-            StorageMenu.Instance.gameObject.transform.Find("CustomInputField").gameObject.SetActive(false); //Hide input field
+            if (!Instance.modSettingsShowInputLabel.Value) return;
+            Instance.customStorageInputField.gameObject.SetActive(false); //Hide input field
+            Color color = Instance.customStorageInputField.GetComponent<Image>().color;
 
             try
             {
@@ -292,13 +594,19 @@ namespace SimpleLabels
                     string labelText = Instance.customStorageInputField.text;
                     labelText = Regex.Replace(labelText, @"[\n\r]", "");
                     string guid = Instance.openEntityGameObjectGUID;
-                    if (debug) MelonLogger.Msg($"Saved label: {labelText} for GUID: {guid}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Saved label: {labelText} for GUID: {guid}");
 
                     if (!string.IsNullOrEmpty(guid))
                     {
-                        Instance.unsavedLabelData.Labels[guid] = labelText;
+                        if (!Instance.unsavedLabelData.Labels.ContainsKey(guid))
+                        {
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"No unsavedLabelData entry, creating new. Color: {ColorUtility.ToHtmlStringRGBA(color)}");
 
-                        Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openStorageGameObject, Instance.openEntityName);
+                            Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(color));
+                        }
+                        Instance.unsavedLabelData.Labels[guid].Text = labelText;
+
+                        Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openStorageGameObject, Instance.openEntityName, color);
                     }
 
                     Instance.wasStorageRackOpen = false; //Reset Flag
@@ -320,9 +628,10 @@ namespace SimpleLabels
             [HarmonyPostfix]
             public static void Postfix(MixingStationCanvas __instance, MixingStation station)
             {
+                if (!Instance.modSettingsShowInputLabel.Value) return;
                 Instance.wasStationOpen = true;
 
-                if (debug) MelonLogger.Msg($"MixingStationCanvas opened for: {station?.name}");
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"MixingStationCanvas opened for: {station?.name}");
 
                 if (station != null && station.gameObject != null)
                 {
@@ -331,52 +640,56 @@ namespace SimpleLabels
                         Instance.openStorageGameObject = station.gameObject;
                         Instance.openEntityName = station.name;
 
-                        // Try to get GUID - this might need adjustment based on actual MixingStation implementation
-
                         var mixingStationMk2 = Instance.openStorageGameObject.GetComponent<MixingStationMk2>();
                         var mixingStation = Instance.openStorageGameObject.GetComponent<MixingStation>();
                         if (mixingStationMk2 != null)
                         {
                             Instance.openEntityGameObjectGUID = mixingStationMk2.GUID.ToString();
-                            if (debug) MelonLogger.Msg($"MixingStationMk2 GUID: {Instance.openEntityGameObjectGUID}");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"MixingStationMk2 GUID: {Instance.openEntityGameObjectGUID}");
                         }
                         else if (mixingStation != null)
                         {
                             Instance.openEntityGameObjectGUID = mixingStation.GUID.ToString();
-                            if (debug) MelonLogger.Msg($"MixingStation GUID: {Instance.openEntityGameObjectGUID}");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"MixingStation GUID: {Instance.openEntityGameObjectGUID}");
                         }
                         else
                         {
-                            if (debug) MelonLogger.Warning($"MixingStationMk2 or MixingStation component not found on {station.name}");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"MixingStationMk2 or MixingStation component not found on {station.name}");
                             Instance.openEntityGameObjectGUID = null;
                         }
 
                         if (!string.IsNullOrEmpty(Instance.openEntityGameObjectGUID))
                         {
-                            // Show and position the input field
+
                             Instance.customStationInputFields["MixingStation"].gameObject.SetActive(true);
 
-                            // Position the input field relative to MixingStation UI
-                            RectTransform inputRT = Instance.customStationInputFields["MixingStation"].GetComponent<RectTransform>();
-                            inputRT.anchoredPosition = new Vector2(0, 120); // Adjust as needed
 
-                            // Load existing label if it exists
-                            if (Instance.unsavedLabelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out string existingUnsavedLabel))
+                            RectTransform inputRT = Instance.customStationInputFields["MixingStation"].GetComponent<RectTransform>();
+                            inputRT.anchoredPosition = new Vector2(0, 120);
+
+
+                            if (Instance.unsavedLabelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out LabelInfo existingUnsavedLabel))
                             {
-                                Instance.customStationInputFields["MixingStation"].text = existingUnsavedLabel;
-                                if (debug) MelonLogger.Msg($"Loaded existing unsaved label: {existingUnsavedLabel}");
+                                Instance.customStationInputFields["MixingStation"].text = existingUnsavedLabel.Text;
+                                ColorUtility.TryParseHtmlString("#" + existingUnsavedLabel.Color, out Color color);
+                                Instance.customStationInputFields["MixingStation"].GetComponent<Image>().color = color;
+                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Loaded existing unsaved label: {existingUnsavedLabel}");
                             }
-                            else if (Instance.labelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out string existingLabel))
+                            else if (Instance.labelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out LabelInfo existingLabel))
                             {
-                                Instance.customStationInputFields["MixingStation"].text = existingLabel;
-                                if (debug) MelonLogger.Msg($"Loaded existing label: {existingLabel}");
+                                Instance.customStationInputFields["MixingStation"].text = existingLabel.Text;
+                                ColorUtility.TryParseHtmlString("#" + existingLabel.Color, out Color color);
+                                Instance.customStationInputFields["MixingStation"].GetComponent<Image>().color = color;
+                                if (Instance.modSettingsConsoleDebug.Value)
+                                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Loaded existing label: {existingLabel}");
                             }
                             else
                             {
                                 Instance.customStationInputFields["MixingStation"].text = string.Empty;
+                                Instance.customStationInputFields["MixingStation"].GetComponent<Image>().color = Color.white;
                             }
 
-                            if (Instance.config.AutoFocus)
+                            if (Instance.modSettingsAutoFocusLabel.Value)
                             {
                                 Instance.customStationInputFields["MixingStation"].Select();
                                 Instance.customStationInputFields["MixingStation"].ActivateInputField();
@@ -386,7 +699,7 @@ namespace SimpleLabels
                     }
                     catch (Exception ex)
                     {
-                        if (debug) MelonLogger.Error($"Error in MixingStationCanvas_Open_Patch: {ex.Message}");
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Error($"Error in MixingStationCanvas_Open_Patch: {ex.Message}");
                     }
                 }
             }
@@ -398,9 +711,11 @@ namespace SimpleLabels
             [HarmonyPostfix]
             public static void Postfix(MixingStationCanvas __instance, bool enablePlayerControl)
             {
+                if (!Instance.modSettingsShowInputLabel.Value) return;
                 if (!Instance.wasStationOpen) return;
                 try
                 {
+                    Color color = Instance.customStationInputFields["MixingStation"].GetComponent<Image>().color;
                     Instance.customStationInputFields["MixingStation"].gameObject.SetActive(false);
 
                     string labelText = Instance.customStationInputFields["MixingStation"].text;
@@ -409,9 +724,15 @@ namespace SimpleLabels
 
                     if (!string.IsNullOrEmpty(guid))
                     {
-                        if (debug) MelonLogger.Msg($"Saving mixing station label: {labelText} for GUID: {guid}");
-                        Instance.unsavedLabelData.Labels[guid] = labelText;
-                        Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openStorageGameObject, Instance.openEntityName);
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Saving mixing station label: {labelText} for GUID: {guid}");
+                        if (!Instance.unsavedLabelData.Labels.ContainsKey(guid))
+                        {
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"No unsavedLabelData entry, creating new. Color: {ColorUtility.ToHtmlStringRGBA(color)}");
+
+                            Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(color));
+                        }
+                        Instance.unsavedLabelData.Labels[guid].Text = labelText;
+                        Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openStorageGameObject, Instance.openEntityName, color);
 
                         LabelTracker.UpdateLabelText(guid, labelText);
                     }
@@ -429,8 +750,9 @@ namespace SimpleLabels
             [HarmonyPostfix]
             public static void Postfix(ChemistryStationCanvas __instance, ChemistryStation station)
             {
+                if (!Instance.modSettingsShowInputLabel.Value) return;
                 Instance.wasStationOpen = true;
-                if (debug) MelonLogger.Msg($"ChemistryStationCanvas opened for: {station?.name}");
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"ChemistryStationCanvas opened for: {station?.name}");
 
                 if (station != null && station.gameObject != null)
                 {
@@ -439,23 +761,23 @@ namespace SimpleLabels
                         Instance.openStorageGameObject = station.gameObject;
                         Instance.openEntityName = station.name;
 
-                        // Try to get GUID - this might need adjustment based on actual ChemistryStation implementation
+                        // Try to get GUID
 
                         var chemistryStation = Instance.openStorageGameObject.GetComponent<ChemistryStation>();
                         if (chemistryStation != null)
                         {
                             Instance.openEntityGameObjectGUID = chemistryStation.GUID.ToString();
-                            if (debug) MelonLogger.Msg($"ChemistryStation GUID: {Instance.openEntityGameObjectGUID}");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"ChemistryStation GUID: {Instance.openEntityGameObjectGUID}");
                         }
                         else
                         {
-                            if (debug) MelonLogger.Warning($"ChemistryStation component not found on {station.name}");
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"ChemistryStation component not found on {station.name}");
                             Instance.openEntityGameObjectGUID = null;
                         }
 
                         if (!string.IsNullOrEmpty(Instance.openEntityGameObjectGUID))
                         {
-                            // Show and position the input field
+
                             Instance.customStationInputFields["ChemistryStation"].gameObject.SetActive(true);
 
                             // Position the input field relative to ChemistryStation UI
@@ -463,22 +785,27 @@ namespace SimpleLabels
                             inputRT.anchoredPosition = new Vector2(0, 120); // Adjust as needed
 
                             // Load existing label if it exists
-                            if (Instance.unsavedLabelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out string existingUnsavedLabel))
+                            if (Instance.unsavedLabelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out LabelInfo existingUnsavedLabel))
                             {
-                                Instance.customStationInputFields["ChemistryStation"].text = existingUnsavedLabel;
-                                if (debug) MelonLogger.Msg($"Loaded existing unsaved label: {existingUnsavedLabel}");
+                                Instance.customStationInputFields["ChemistryStation"].text = existingUnsavedLabel.Text;
+                                ColorUtility.TryParseHtmlString("#" + existingUnsavedLabel.Color, out Color color);
+                                Instance.customStationInputFields["ChemistryStation"].GetComponent<Image>().color = color;
+                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Loaded existing unsaved label: {existingUnsavedLabel}");
                             }
-                            else if (Instance.labelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out string existingLabel))
+                            else if (Instance.labelData.Labels.TryGetValue(Instance.openEntityGameObjectGUID, out LabelInfo existingLabel))
                             {
-                                Instance.customStationInputFields["ChemistryStation"].text = existingLabel;
-                                if (debug) MelonLogger.Msg($"Loaded existing label: {existingLabel}");
+                                Instance.customStationInputFields["ChemistryStation"].text = existingLabel.Text;
+                                ColorUtility.TryParseHtmlString("#" + existingLabel.Color, out Color color);
+                                Instance.customStationInputFields["ChemistryStation"].GetComponent<Image>().color = color;
+                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Loaded existing label: {existingLabel}");
                             }
                             else
                             {
                                 Instance.customStationInputFields["ChemistryStation"].text = string.Empty;
+                                Instance.customStationInputFields["ChemistryStation"].GetComponent<Image>().color = Color.white;
                             }
 
-                            if (Instance.config.AutoFocus)
+                            if (Instance.modSettingsAutoFocusLabel.Value)
                             {
                                 Instance.customStationInputFields["ChemistryStation"].Select();
                                 Instance.customStationInputFields["ChemistryStation"].ActivateInputField();
@@ -488,7 +815,7 @@ namespace SimpleLabels
                     }
                     catch (Exception ex)
                     {
-                        if (debug) MelonLogger.Error($"Error in ChemistryStationCanvas_Open_Patch: {ex.Message}");
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Error($"Error in ChemistryStationCanvas_Open_Patch: {ex.Message}");
                     }
                 }
             }
@@ -500,20 +827,27 @@ namespace SimpleLabels
             [HarmonyPostfix]
             public static void Postfix(ChemistryStationCanvas __instance, bool removeUI)
             {
+                if (!Instance.modSettingsShowInputLabel.Value) return;
                 if (!Instance.wasStationOpen) return;
                 try
                 {
                     Instance.customStationInputFields["ChemistryStation"].gameObject.SetActive(false);
-
+                    Color color = Instance.customStationInputFields["ChemistryStation"].GetComponent<Image>().color;
                     string labelText = Instance.customStationInputFields["ChemistryStation"].text;
                     labelText = Regex.Replace(labelText, @"[\n\r]", "");
                     string guid = Instance.openEntityGameObjectGUID;
 
                     if (!string.IsNullOrEmpty(guid))
                     {
-                        if (debug) MelonLogger.Msg($"Saving chemistry station label: {labelText} for GUID: {guid}");
-                        Instance.unsavedLabelData.Labels[guid] = labelText;
-                        Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openStorageGameObject, Instance.openEntityName);
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Saving chemistry station label: {labelText} for GUID: {guid}");
+                        if (!Instance.unsavedLabelData.Labels.ContainsKey(guid))
+                        {
+
+                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"No unsavedLabelData entry, creating new. Color: {ColorUtility.ToHtmlStringRGBA(color)}");
+                            Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(color));
+                        }
+                        Instance.unsavedLabelData.Labels[guid].Text = labelText;
+                        Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openStorageGameObject, Instance.openEntityName, color);
 
                         LabelTracker.UpdateLabelText(guid, labelText);
                     }
@@ -524,9 +858,13 @@ namespace SimpleLabels
                 }
             }
         }
+
         private void StationCanvasOnOpenHandler(GridItem station)
         {
+
+            if (!Instance.modSettingsShowInputLabel.Value) return;
             wasStationOpen = true;
+            openStorageGameObject = station.gameObject;
             string GUID = station.GUID.ToString();
             string stationName = station.name.ToString().Replace("(Clone)", "").Trim().Replace("_Built", "").Trim();
             if (stationName == "PackagingStation_Mk2") stationName = "PackagingStation";
@@ -539,22 +877,27 @@ namespace SimpleLabels
             inputRT.anchoredPosition = new Vector2(0, 120); // Adjust as needed
 
             // Load existing label if it exists
-            if (Instance.unsavedLabelData.Labels.TryGetValue(GUID, out string existingUnsavedLabel))
+            if (Instance.unsavedLabelData.Labels.TryGetValue(GUID, out LabelInfo existingUnsavedLabel))
             {
-                Instance.customStationInputFields[stationName].text = existingUnsavedLabel;
-                if (debug) MelonLogger.Msg($"Loaded existing unsaved label: {existingUnsavedLabel}");
+                Instance.customStationInputFields[stationName].text = existingUnsavedLabel.Text;
+                ColorUtility.TryParseHtmlString("#" + existingUnsavedLabel.Color, out Color color);
+                Instance.customStationInputFields[stationName].GetComponent<Image>().color = color;
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Loaded existing unsaved label: {existingUnsavedLabel}");
             }
-            else if (Instance.labelData.Labels.TryGetValue(GUID, out string existingLabel))
+            else if (Instance.labelData.Labels.TryGetValue(GUID, out LabelInfo existingLabel))
             {
-                Instance.customStationInputFields[stationName].text = existingLabel;
-                if (debug) MelonLogger.Msg($"Loaded existing label: {existingLabel}");
+                Instance.customStationInputFields[stationName].text = existingLabel.Text;
+                ColorUtility.TryParseHtmlString("#" + existingLabel.Color, out Color color);
+                Instance.customStationInputFields[stationName].GetComponent<Image>().color = color;
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Loaded existing label: {existingLabel}");
             }
             else
             {
                 Instance.customStationInputFields[stationName].text = string.Empty;
+                Instance.customStationInputFields[stationName].GetComponent<Image>().color = Color.white;
             }
 
-            if (Instance.config.AutoFocus)
+            if (Instance.modSettingsAutoFocusLabel.Value)
             {
                 Instance.customStationInputFields[stationName].Select();
                 Instance.customStationInputFields[stationName].ActivateInputField();
@@ -564,26 +907,33 @@ namespace SimpleLabels
 
         private void StationCanvasOnCloseHandler(GridItem station)
         {
+            if (!Instance.modSettingsShowInputLabel.Value) return;
             if (!wasStationOpen) return;
-
-            string GUID = station.GUID.ToString();
+            string guid = station.GUID.ToString();
             string stationName = station.name.ToString().Replace("(Clone)", "").Trim().Replace("_Built", "").Trim();
             if (stationName == "PackagingStation_Mk2") stationName = "PackagingStation";
+
 
             try
             {
                 Instance.customStationInputFields[stationName].gameObject.SetActive(false);
+                Color color = Instance.customStationInputFields[stationName].GetComponent<Image>().color;
 
                 string labelText = Instance.customStationInputFields[stationName].text;
                 labelText = Regex.Replace(labelText, @"[\n\r]", "");
 
-                if (!string.IsNullOrEmpty(GUID))
+                if (!string.IsNullOrEmpty(guid))
                 {
-                    if (debug) MelonLogger.Msg($"Saving mixing station label: {labelText} for GUID: {GUID}");
-                    Instance.unsavedLabelData.Labels[GUID] = labelText;
-                    Instance.UpdateLabelPrefabInGameObject(GUID, labelText, station.gameObject, stationName);
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Saving mixing station label: {labelText} for GUID: {guid}");
+                    if (!Instance.unsavedLabelData.Labels.ContainsKey(guid))
+                    {
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"No unsavedLabelData entry, creating new. Color: {ColorUtility.ToHtmlStringRGBA(color)}");
+                        Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(color));
+                    }
+                    Instance.unsavedLabelData.Labels[guid].Text = labelText;
+                    Instance.UpdateLabelPrefabInGameObject(guid, labelText, station.gameObject, stationName, color);
 
-                    LabelTracker.UpdateLabelText(GUID, labelText);
+                    LabelTracker.UpdateLabelText(guid, labelText);
                 }
             }
             catch (Exception ex)
@@ -598,8 +948,6 @@ namespace SimpleLabels
         {
             private static void HandleSetIsOpen<T>(T station, bool open, string stationName, bool removeUI = false) where T : GridItem
             {
-
-                MelonLogger.Msg($"[Harmony Postfix] SetIsOpen finished for {stationName}: {station?.name}, open: {open}, removeUI: {removeUI}");
                 if (open)
                 {
                     Instance.openStationGameObject = station;
@@ -651,7 +999,7 @@ namespace SimpleLabels
 
 
 
-        private TMP_InputField CreateInputField(GameObject parentUI)
+        private TMP_InputField CreateInputField(GameObject parentUI, Vector2 vector)
         {
             try
             {
@@ -659,19 +1007,15 @@ namespace SimpleLabels
                 inputFieldGameObject.layer = 5; // UI layer
                 inputFieldGameObject.transform.SetParent(parentUI.transform, false);
 
+                RectTransform parentRectTransform = parentUI.GetComponent<RectTransform>();
                 RectTransform rectTransform = inputFieldGameObject.AddComponent<RectTransform>();
-                rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-                rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                rectTransform.anchorMin = vector;
+                rectTransform.anchorMax = vector;
                 rectTransform.pivot = new Vector2(0.5f, 0.5f);
                 rectTransform.sizeDelta = new Vector2(550, 50);
 
-                GameObject containerGameObject = parentUI.transform.Find("Container").gameObject;
-                RectTransform containerRT = containerGameObject.GetComponent<RectTransform>();
-                Vector2 containerPos = containerRT.anchoredPosition;
-                Vector2 containerSize = containerRT.sizeDelta;
-                rectTransform.anchoredPosition = new Vector2(containerPos.x, containerPos.y + 155); // Adjusted vertical position relative to "Container"
-
-
+                float inputFieldHeight = parentRectTransform.rect.height;
+                rectTransform.anchoredPosition = new Vector2(0, -inputFieldHeight / 2);
 
                 Image bg = inputFieldGameObject.AddComponent<Image>();
                 bg.color = new Color(1, 1, 1, 0.9f);
@@ -720,10 +1064,9 @@ namespace SimpleLabels
                 tempInputField.contentType = TMP_InputField.ContentType.Standard;
 
                 inputFieldGameObject.SetActive(false); //Initialize hidden
-                LoggerInstance.Msg("Custom input field created successfully");
+                LoggerInstance.Msg($"Custom {parentUI.name} input field created successfully");
+
                 return tempInputField;
-
-
             }
             catch (Exception ex)
             {
@@ -732,59 +1075,129 @@ namespace SimpleLabels
             }
         }
 
-
-        private void EnsureConfigDirectoryExists()
+        private GameObject CreateColorPicker(TMP_InputField inputField)
         {
             try
             {
-                if (!Directory.Exists(configFolderPath))
+                // Create the color picker container
+                GameObject colorPickerGO = new GameObject("ColorPicker");
+                colorPickerGO.layer = 5; // UI layer
+                colorPickerGO.transform.SetParent(inputField.transform, false);
+
+                // Set up the RectTransform
+                RectTransform inputFieldRT = inputField.GetComponent<RectTransform>();
+                RectTransform rectTransform = colorPickerGO.AddComponent<RectTransform>();
+                rectTransform.anchorMin = new Vector2(0.5f, 1f); // Anchor to the top-middle
+                rectTransform.anchorMax = new Vector2(0.5f, 1f);
+                rectTransform.pivot = new Vector2(0.5f, 1f); // Pivot at the top-middle
+                rectTransform.sizeDelta = new Vector2(-130, 40);
+
+                // Calculate the vertical position to be below the input field
+                float inputFieldHeight = inputFieldRT.rect.height;
+                rectTransform.anchoredPosition = new Vector2(0, -inputFieldHeight / 2 -30); // Position 30 units below the bottom of the input field
+
+                // Add background (optional)
+                Image bg = colorPickerGO.AddComponent<Image>();
+                bg.color = new Color(1, 1, 1, 0.7f);
+
+                // Define colors to display (10 colors)
+                List<Color> colors = new List<Color>();
+
+                foreach (var pair in modSettingsColors)
                 {
-                    Directory.CreateDirectory(configFolderPath);
-                    if (debug) MelonLogger.Msg("Created SimpleLabels config directory");
+                    ColorUtility.TryParseHtmlString("#" + pair.Value.Value, out Color color);
+                    colors.Add(color);
                 }
+
+                // Create color buttons
+                float buttonSize = 30f;
+                float spacing = 10f;
+                float totalWidth = (colors.Count * buttonSize) + ((colors.Count - 1) * spacing);
+                float startX = -totalWidth / 2 + buttonSize / 2;
+
+                for (int i = 0; i < colors.Count; i++)
+                {
+                    GameObject colorButtonGO = new GameObject($"ColorButton_{i}");
+                    colorButtonGO.layer = 5; // UI layer
+                    colorButtonGO.transform.SetParent(colorPickerGO.transform, false);
+
+                    // Set up button transform
+                    RectTransform buttonRT = colorButtonGO.AddComponent<RectTransform>();
+                    buttonRT.sizeDelta = new Vector2(buttonSize, buttonSize);
+                    buttonRT.anchoredPosition = new Vector2(startX + i * (buttonSize + spacing), 0);
+
+                    // Add image component
+                    Image buttonImage = colorButtonGO.AddComponent<Image>();
+                    buttonImage.color = colors[i];
+
+                    // Add button component
+                    Button button = colorButtonGO.AddComponent<Button>();
+                    button.onClick.AddListener((UnityAction)(() => onColorPickerColorSelect(buttonImage.color)));
+
+                    // Add outline to make buttons more visible
+                    Outline outline = colorButtonGO.AddComponent<Outline>();
+                    outline.effectColor = Color.black;
+                    outline.effectDistance = new Vector2(1, 1);
+                }
+
+                // Initially hide the color picker
+                colorPickerGO.SetActive(true);
+                LoggerInstance.Msg("Color picker created successfully");
+
+                return colorPickerGO;
             }
             catch (Exception ex)
             {
-                MelonLogger.Error($"Failed to create config directory: {ex.Message}");
+                LoggerInstance.Error($"Failed to create color picker: {ex.Message}");
+                return null;
             }
         }
 
-        private void LoadConfig()
+        private void onColorPickerColorSelect(Color buttonImage)
         {
-            try
+            var imageComponent = Instance.customStorageInputField.IsActive() ? Instance.customStorageInputField.GetComponent<Image>() : null;
+            if (imageComponent == null)
             {
-                if (File.Exists(configFilePath))
+                foreach (var kvp in Instance.customStationInputFields)
                 {
-                    string json = File.ReadAllText(configFilePath);
-                    config = JsonConvert.DeserializeObject<ModConfig>(json);
-                    LoggerInstance.Msg("Config loaded successfully");
-                }
-                else
-                {
-                    config = new ModConfig();
-                    SaveConfig();
-                    LoggerInstance.Msg("Created new config file");
+                    TMP_InputField inputField = kvp.Value; // Access the value of the KeyValuePair
+                    if (inputField.IsActive())
+                    {
+                        imageComponent = inputField.GetComponent<Image>();
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Changed color to: {buttonImage.ToString()}");
+                    }
                 }
             }
-            catch (Exception ex)
+            else
             {
-                config = new ModConfig();
-                LoggerInstance.Error($"Failed to load config: {ex.Message}");
-                LoggerInstance.Warning("Using default config values");
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Changed color to: {buttonImage.ToString()}");
+            }
+
+
+            if (imageComponent != null)
+            {
+                imageComponent.color = buttonImage;
+            }
+            else
+            {
+                LoggerInstance.Warning("Image component not found on openStorageGameObject.");
             }
         }
 
-        private void SaveConfig()
+
+        private void EnsureDataDirectoryExists()
         {
             try
             {
-                string json = JsonConvert.SerializeObject(config, Formatting.Indented);
-                File.WriteAllText(configFilePath, json);
-                if (debug) MelonLogger.Msg("Config saved successfully");
+                if (!Directory.Exists(dataFolderPath))
+                {
+                    Directory.CreateDirectory(dataFolderPath);
+                    LoggerInstance.Msg("Created SimpleLabels data directory");
+                }
             }
             catch (Exception ex)
             {
-                MelonLogger.Error($"Failed to save config: {ex.Message}");
+                LoggerInstance.Error($"Failed to create data directory: {ex.Message}");
             }
         }
 
@@ -797,6 +1210,7 @@ namespace SimpleLabels
                     string json = File.ReadAllText(labelDataFilePath);
                     labelData = JsonConvert.DeserializeObject<LabelData>(json) ?? new LabelData();
                     LoggerInstance.Msg($"Loaded label data with {labelData.Labels.Count} entries");
+
                 }
                 else
                 {
@@ -845,15 +1259,15 @@ namespace SimpleLabels
                 paperBackground.transform.localPosition = Vector3.zero;
                 paperBackground.transform.localScale = new Vector3(2f, 0.6f, 0.1f);
 
-                GameObject chemical_bottleObject = GameObject.Find("small chemical bottle/Lid"); //lmao
-                Material whitematte = chemical_bottleObject?.GetComponent<MeshRenderer>()?.material;
-                if (whitematte != null)
+                Material whiteMatte = new Material(Shader.Find("Universal Render Pipeline/Simple Lit"));
+
+                if (whiteMatte != null)
                 {
-                    paperBackground.GetComponent<Renderer>().material = whitematte;
+                    paperBackground.GetComponent<Renderer>().material = whiteMatte;
                 }
                 else
                 {
-                    LoggerInstance.Error("Couldn't find material to reuse!");
+                    LoggerInstance.Error("Couldn't find material to reuse.");
                 }
 
                 GameObject textObject = new GameObject("LabelText");
@@ -902,16 +1316,27 @@ namespace SimpleLabels
                     string objectName = __result.name;
                     string objectGuid = __result.GUID.ToString();
 
-                    if (debug) MelonLogger.Msg($"GridItemLoaderPatch objectName: {objectName}");
-                    MelonLogger.Warning($"OBJECT NAME: {objectName}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"GridItemLoaderPatch objectName: {objectName}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Loading ObjectName: {objectName}");
                     if (Instance.IsValidStorageName(objectName))
                     {
-                        if (debug) MelonLogger.Msg($"Processing storage rack: {objectName} (GUID: {objectGuid})");
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Processing object name: {objectName} (GUID: {objectGuid})");
 
                         try
                         {
-                            string initialLabelText = Instance.labelData.Labels.TryGetValue(objectGuid, out string text) ? text : "";
-                            Instance.AddLabelPrefabToGameObject(GO, objectName, objectGuid);
+                            string initialLabelText = Instance.labelData.Labels.TryGetValue(objectGuid, out LabelInfo labelInfo) ? labelInfo.Text : "";
+
+                            Color color;
+                            try
+                            {
+                                ColorUtility.TryParseHtmlString("#" + labelInfo.Color, out color);
+                            }
+                            catch
+                            {
+                                color = Color.white;
+                            }
+
+                            Instance.AddLabelPrefabToGameObject(GO, objectName, objectGuid, color);
                             LabelTracker.TrackStorage(objectGuid, GO, initialLabelText);
                         }
                         catch (Exception ex)
@@ -936,16 +1361,28 @@ namespace SimpleLabels
                     string objectName = __result.name;
                     string objectGuid = __result.GUID.ToString();
 
-                    if (debug) MelonLogger.Msg($"SurfaceItemLoaderPatch objectName: {objectName}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"SurfaceItemLoaderPatch objectName: {objectName}");
 
                     if (objectName.Contains("WallMountedShelf"))
                     {
-                        if (debug) MelonLogger.Msg($"Processing storage rack: {objectName} (GUID: {objectGuid})");
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Processing storage rack: {objectName} (GUID: {objectGuid})");
 
                         try
                         {
-                            string initialLabelText = Instance.labelData.Labels.TryGetValue(objectGuid, out string text) ? text : "";
-                            Instance.AddLabelPrefabToGameObject(GO, objectName, objectGuid);
+                            string initialLabelText = Instance.labelData.Labels.TryGetValue(objectGuid, out LabelInfo labelInfo) ? labelInfo.Text : "";
+                            Color color;
+                            try
+                            {
+                                ColorUtility.TryParseHtmlString("#" + labelInfo.Color, out  color);
+                            }
+                            catch
+                            {
+                                color = Color.white;
+                            }
+                            
+                            
+                            
+                            Instance.AddLabelPrefabToGameObject(GO, objectName, objectGuid, color);
                             LabelTracker.TrackStorage(objectGuid, GO, initialLabelText);
                         }
                         catch (Exception ex)
@@ -958,7 +1395,7 @@ namespace SimpleLabels
             }
         }
 
-        public void AddLabelPrefabToGameObject(GameObject parentGO, string parentOBName, string parentOBGUID)
+        public void AddLabelPrefabToGameObject(GameObject parentGO, string parentOBName, string parentOBGUID, Color color)
         {
             try
             {
@@ -981,7 +1418,7 @@ namespace SimpleLabels
                     return;
                 }
 
-                if (debug) MelonLogger.Msg($"Adding labels to {parentOBName} (GUID: {parentOBGUID})");
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Adding labels to {parentOBName} (GUID: {parentOBGUID})");
 
                 // Get the base object name (remove "(Clone)" if present)
                 string baseObjectName = parentOBName.Replace("(Clone)", "").Trim();
@@ -1111,15 +1548,26 @@ namespace SimpleLabels
                                 continue;
                             }
 
-                            // Set initial text if we have saved data for this rack (as before)
-                            if (Instance.unsavedLabelData.Labels.TryGetValue(parentOBGUID, out string unsavedLabelText))
+                            var material = labelInstance.GetComponentInChildren<MeshRenderer>().material;
+                            if (material == null)
                             {
-                                textMesh.text = unsavedLabelText;
+                                LoggerInstance.Warning($"Failed to find MeshRenderer component on label {i + 1}");
+                                continue;
+                            }
+
+                            // Set initial text if we have saved data for this rack
+                            if (Instance.unsavedLabelData.Labels.TryGetValue(parentOBGUID, out LabelInfo unsavedLabelText))
+                            {
+                                textMesh.text = unsavedLabelText.Text;
+                                ColorUtility.TryParseHtmlString("#" + unsavedLabelText.Color, out Color unsavedLabelTextColor);
+                                material.color = unsavedLabelTextColor;
                                 labelInstance.SetActive(true);
                             }
-                            else if (Instance.labelData.Labels.TryGetValue(parentOBGUID, out string labelText))
+                            else if (Instance.labelData.Labels.TryGetValue(parentOBGUID, out LabelInfo labelText))
                             {
-                                textMesh.text = labelText;
+                                textMesh.text = labelText.Text;
+                                ColorUtility.TryParseHtmlString("#" + labelText.Color, out Color labelTextColor);
+                                material.color = labelTextColor;
                                 labelInstance.SetActive(true);
                             }
                             else
@@ -1135,11 +1583,11 @@ namespace SimpleLabels
                         }
                     }
 
-                    if (debug) MelonLogger.Msg($"Successfully created {labelsCreated}/{sidesToLabel.Count} labels for {parentOBName}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Successfully created {labelsCreated}/{sidesToLabel.Count} labels for {parentOBName}");
                 }
                 else
                 {
-                    if (debug) MelonLogger.Msg($"No label configuration found for {parentOBName}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"No label configuration found for {parentOBName}");
                 }
             }
             catch (Exception ex)
@@ -1161,7 +1609,7 @@ namespace SimpleLabels
             }
         }
 
-        public void UpdateLabelPrefabInGameObject(string GUID, string labelText, GameObject parentGO, string parentName)
+        public void UpdateLabelPrefabInGameObject(string GUID, string labelText, GameObject parentGO, string parentName, Color color)
         {
             try
             {
@@ -1183,7 +1631,7 @@ namespace SimpleLabels
                     return;
                 }
 
-                if (debug) MelonLogger.Msg($"Updating labels for {parentName} (GUID: {GUID})");
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Updating labels for {parentName} (GUID: {GUID})");
 
                 if (!LabelTracker.StorageEntities.ContainsKey(GUID))
                 {
@@ -1195,11 +1643,11 @@ namespace SimpleLabels
                 bool hasLabelPrefabs = parentGO.GetComponentsInChildren<Transform>(true)
                     .Any(child => child.gameObject.name == "LabelText");
 
-                if (debug) MelonLogger.Msg($"Label prefabs exist: {hasLabelPrefabs}");
+                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Label prefabs exist: {hasLabelPrefabs}");
 
                 if (!hasLabelPrefabs)
                 {
-                    AddLabelPrefabToGameObject(parentGO, parentName, GUID);
+                    AddLabelPrefabToGameObject(parentGO, parentName, GUID, color);
                     return; // New labels will initialize with the correct text
                 }
 
@@ -1214,17 +1662,26 @@ namespace SimpleLabels
                         if (string.IsNullOrEmpty(labelText))
                         {
                             labelObject.gameObject.SetActive(false);
-                            if (debug) LoggerInstance.Msg($"Disabled label {labelObject.gameObject.name} (empty text)");
+                            if (Instance.modSettingsConsoleDebug.Value) LoggerInstance.Msg($"Disabled label {labelObject.gameObject.name} (empty text)");
                         }
                         else
                         {
                             labelObject.gameObject.SetActive(true);
+                            var material = labelObject.GetComponentInChildren<MeshRenderer>().material;
                             var textMesh = labelObject.GetComponentInChildren<TextMeshPro>(true);
 
                             if (textMesh != null)
                             {
                                 textMesh.text = labelText;
-                                if (debug) LoggerInstance.Msg($"Updated label {labelObject.gameObject.name} with text: {labelText}");
+                                if (Instance.modSettingsConsoleDebug.Value) LoggerInstance.Msg($"Updated label {labelObject.gameObject.name} with text: {labelText}");
+                                if(material != null)
+                                {
+                                    material.color = color;
+                                }
+                                else
+                                {
+                                    LoggerInstance.Warning($"MeshRenderer component missing on {labelObject.gameObject.name}");
+                                }
                             }
                             else
                             {
@@ -1246,7 +1703,7 @@ namespace SimpleLabels
 
         private bool IsValidStorageName(string storageName)
         {
-            if (debug) MelonLogger.Msg($"IsValidStorageName string storageName: {storageName}");
+            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"IsValidStorageName string storageName: {storageName}");
 
             storageName = storageName.Replace("(Clone)", "").Trim();
 
@@ -1268,22 +1725,17 @@ namespace SimpleLabels
                 };
             return allowedNames.Contains(storageName);
         }
+        
 
         public static class LabelTracker
         {
             public static Dictionary<string, Tuple<string, GameObject, string>> StorageEntities = new Dictionary<string, Tuple<string, GameObject, string>>();
 
-            public static void TrackStorage(string guid, GameObject GO, string labelText = "")
+            public static void TrackStorage(string guid, GameObject GO, string labelText = "") //GO Not used atm
             {
                 if (string.IsNullOrEmpty(guid))
                 {
                     Instance.LoggerInstance.Warning("Attempted to track storage with empty GUID");
-                    return;
-                }
-
-                if (GO == null)
-                {
-                    Instance.LoggerInstance.Warning($"Attempted to track null GameObject for GUID: {guid}");
                     return;
                 }
 
@@ -1293,7 +1745,7 @@ namespace SimpleLabels
                 }
                 else
                 {
-                    if (debug) MelonLogger.Msg($"GUID: {guid} is already tracked");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"GUID: {guid} is already tracked");
                 }
             }
 
@@ -1316,7 +1768,7 @@ namespace SimpleLabels
                 {
                     StorageEntities.Remove(guid);
                 }
-                else if (debug)
+                else if (Instance.modSettingsConsoleDebug.Value)
                 {
                     Instance.LoggerInstance.Msg($"Attempted to untrack non-existent GUID: {guid}");
                 }
@@ -1330,7 +1782,7 @@ namespace SimpleLabels
                 }
                 else
                 {
-                    if (debug) MelonLogger.Msg($"GUID not found when trying to get label text: {guid}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"GUID not found when trying to get label text: {guid}");
                     return null;
                 }
             }
@@ -1345,7 +1797,7 @@ namespace SimpleLabels
             {
                 if (StorageEntities.Count == 0)
                 {
-                    MelonLogger.Msg("StorageEntities is empty.");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("StorageEntities is empty.");
                     return;
                 }
 
@@ -1357,39 +1809,46 @@ namespace SimpleLabels
                     string labelText = kvp.Value.Item3;
                     string gameObjectName = kvp.Value.Item2 != null ? kvp.Value.Item2.name : "null";
 
-                    MelonLogger.Msg($"GUID: {guid}, GameObject Name: {gameObjectName}, Label Text: {labelText}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"GUID: {guid}, GameObject Name: {gameObjectName}, Label Text: {labelText}");
                 }
             }
         }
 
-        public class ModConfig
-        {
-            public bool AutoFocus { get; set; } = true;
-        }
 
+
+        [Serializable]
+        public class LabelInfo
+        {
+            public string Text;
+            public string Color;
+
+            public LabelInfo(string text, string color)
+            {
+                Text = text;
+                Color = color;
+            }
+        }
         [Serializable]
         public class LabelData
         {
-            public Dictionary<string, string> Labels { get; set; } = new Dictionary<string, string>();
+            public Dictionary<string, LabelInfo> Labels = new Dictionary<string, LabelInfo>();
         }
 
-        #region CLIPBOARD STUFF
-
-
-
+        //CLIPBOARD FUNCTIONALITY
         [HarmonyPatch(typeof(RouteListFieldUI), "Refresh")]
         public static class RouteListFieldUIRefreshPatch
         {
             [HarmonyPostfix]
             public static void Postfix(Il2CppSystem.Collections.Generic.List<AdvancedTransitRoute> newVal, RouteListFieldUI __instance)
             {
+                if (!Instance.modSettingsShowClipboardRoutesLabels.Value) return;
                 var routeData = new Dictionary<string, string>();
                 var routeDataIndexer = 0;
 
                 foreach (AdvancedTransitRoute route in newVal)
                 {
                     AdvancedTransitRouteData data = route.GetData();
-                    if (debug) MelonLogger.Msg($"Route from {data?.SourceGUID} to {data?.DestinationGUID}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Route from {data?.SourceGUID} to {data?.DestinationGUID}");
 
                     routeData[data.SourceGUID] = data.DestinationGUID;
 
@@ -1402,11 +1861,11 @@ namespace SimpleLabels
                     Transform childTransform = child.TryCast<Transform>(); // Safely cast to Transform
                     if (childTransform == null)
                     {
-                        if (debug) MelonLogger.Warning($"Skipping child: Unable to cast {child.GetType()} to Transform");
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Skipping child: Unable to cast {child.GetType()} to Transform");
                         continue;
                     }
 
-                    if (debug) MelonLogger.Msg($"Processing child: {childTransform.name}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Processing child: {childTransform.name}");
 
                     if (childTransform.name.Contains("Entry") && childTransform.gameObject.active)
                     {
@@ -1428,11 +1887,11 @@ namespace SimpleLabels
                                         sourceLabel.text = sourceLabelText;
                                     }
                                 }
-                                else if (debug) MelonLogger.Warning($"TextMeshProUGUI component not found on {sourceLabelTransform.name}");
+                                else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"TextMeshProUGUI component not found on {sourceLabelTransform.name}");
                             }
-                            else if (debug) MelonLogger.Msg($"TextMeshProUGUI component text is None {sourceLabelTransform.name}");
+                            else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"TextMeshProUGUI component text is None {sourceLabelTransform.name}");
                         }
-                        else if (debug) MelonLogger.Warning($"Transform 'Source/Label' not found under {childTransform.name}");
+                        else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Transform 'Source/Label' not found under {childTransform.name}");
 
                         Transform destinationLabelTransform = childTransform.Find("Destination/Label");
                         textComponent = destinationLabelTransform.GetComponentInChildren<TextMeshProUGUI>();
@@ -1451,13 +1910,13 @@ namespace SimpleLabels
                                         destinationLabel.text = destinationLabelText;
                                     }
                                 }
-                                else if (debug) MelonLogger.Warning($"TextMeshProUGUI component not found on {destinationLabelTransform.name}");
+                                else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"TextMeshProUGUI component not found on {destinationLabelTransform.name}");
 
                             }
-                            else if (debug) MelonLogger.Msg($"TextMeshProUGUI component text is None {destinationLabelTransform.name}");
+                            else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"TextMeshProUGUI component text is None {destinationLabelTransform.name}");
 
                         }
-                        else if (debug) MelonLogger.Warning($"Transform 'Destination/Label' not found under {childTransform.name}");
+                        else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Transform 'Destination/Label' not found under {childTransform.name}");
 
                         routeDataIndexer++;
                     }
@@ -1475,13 +1934,13 @@ namespace SimpleLabels
             [HarmonyPostfix]
             public static void Postfix(Il2CppSystem.Collections.Generic.List<BuildableItem> newVal, ObjectListFieldUI __instance)
             {
-
+                if (!Instance.modSettingsShowClipboardStationsLabels.Value) return;
                 var objectsData = new List<string>();
                 var objectsDataIndexer = 0;
 
                 foreach (BuildableItem obj in newVal)
                 {
-                    if (debug) MelonLogger.Msg($"ObjectListFieldUI, BuildableItem.GUID =  {obj.GUID.ToString()}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"ObjectListFieldUI, BuildableItem.GUID =  {obj.GUID.ToString()}");
                     objectsData.Add(obj.GUID.ToString());
 
                 }
@@ -1493,11 +1952,11 @@ namespace SimpleLabels
                     Transform childTransform = child.TryCast<Transform>(); // Safely cast to Transform
                     if (childTransform == null)
                     {
-                        if (debug) MelonLogger.Warning($"Skipping child: Unable to cast {child.GetType()} to Transform");
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Skipping child: Unable to cast {child.GetType()} to Transform");
                         continue;
                     }
 
-                    if (debug) MelonLogger.Msg($"Processing child: {childTransform.name}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Processing child: {childTransform.name}");
 
                     Transform objectLabelTransform = childTransform.Find("Title");
                     var textComponent = objectLabelTransform.GetComponentInChildren<TextMeshProUGUI>();
@@ -1518,11 +1977,11 @@ namespace SimpleLabels
                                     sourceLabel.text = sourceLabelText;
                                 }
                             }
-                            else if (debug) MelonLogger.Warning($"TextMeshProUGUI component not found on {objectLabelTransform.name}");
+                            else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"TextMeshProUGUI component not found on {objectLabelTransform.name}");
 
 
                         }
-                        else if (debug) MelonLogger.Warning($"Transform 'Source/Label' not found under {childTransform.name}");
+                        else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Transform 'Source/Label' not found under {childTransform.name}");
 
                         objectsDataIndexer++;
                     }
@@ -1534,7 +1993,6 @@ namespace SimpleLabels
         }
 
 
-        #endregion CLIPBOARD STUFF
     }
 
 }
