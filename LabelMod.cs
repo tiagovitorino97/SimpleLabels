@@ -12,7 +12,6 @@ using Il2CppScheduleOne.UI.Stations;
 using Il2CppTMPro;
 using MelonLoader;
 using MelonLoader.Utils;
-using ModManagerPhoneApp;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -22,8 +21,6 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
-using static Il2CppScheduleOne.Management.SetterScreens.ItemSetterScreen;
-using static SimpleLabels.LabelMod;
 
 
 namespace SimpleLabels
@@ -109,10 +106,25 @@ namespace SimpleLabels
 
             try
             {
-                ModManagerPhoneApp.ModSettingsEvents.OnPreferencesSaved += colorPickerUpdateUserColor;
-                LoggerInstance.Msg("Successfully subscribed to Mod Manager save event.");
+                // Try to get the ModManagerPhoneApp.ModSettingsEvents type via reflection
+                var modSettingsEventsType = Type.GetType("ModManagerPhoneApp.ModSettingsEvents, ModManagerPhoneApp");
+
+                if (modSettingsEventsType != null)
+                {
+                    var eventInfo = modSettingsEventsType.GetEvent("OnPreferencesSaved");
+
+                    var handler = Delegate.CreateDelegate(eventInfo.EventHandlerType, this, "colorPickerUpdateUserColor");
+
+                    eventInfo.AddEventHandler(null, handler);
+
+                    LoggerInstance.Msg("Successfully subscribed to Mod Manager save event.");
+                }
+                else
+                {
+                    LoggerInstance.Msg("Mod Manager not found - skipping event subscription");
+                }
             }
-            catch (Exception ex) 
+            catch (Exception ex)
             {
                 LoggerInstance.Warning($"Could not subscribe to Mod Manager event (Mod Manager may not be installed/compatible): {ex.Message}");
             }
@@ -122,9 +134,16 @@ namespace SimpleLabels
         {
             try
             {
-                ModManagerPhoneApp.ModSettingsEvents.OnPreferencesSaved -= colorPickerUpdateUserColor;
+                var modSettingsEventsType = Type.GetType("ModManagerPhoneApp.ModSettingsEvents, ModManagerPhoneApp");
 
-                LoggerInstance.Msg("Unsubscribed from Mod Manager save event.");
+                if (modSettingsEventsType != null)
+                {
+                    var eventInfo = modSettingsEventsType.GetEvent("OnPreferencesSaved");
+                    var handler = Delegate.CreateDelegate(eventInfo.EventHandlerType, this, "colorPickerUpdateUserColor");
+                    eventInfo.RemoveEventHandler(null, handler);
+
+                    LoggerInstance.Msg("Unsubscribed from Mod Manager save event.");
+                }
             }
             catch { /* Ignore errors */ }
         }

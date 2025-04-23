@@ -77,4 +77,3 @@ C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\SimpleLabels.dll
 C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\SimpleLabels.pdb
 C:\Users\tiago\source\repos\Labels\Labels\obj\Debug\SimpleLabels.dll
 C:\Users\tiago\source\repos\Labels\Labels\obj\Debug\SimpleLabels.pdb
-C:\Users\tiago\source\repos\Labels\Labels\bin\Debug\ModManager&PhoneApp.dll
