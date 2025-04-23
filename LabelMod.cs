@@ -602,9 +602,10 @@ namespace SimpleLabels
                         {
                             if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"No unsavedLabelData entry, creating new. Color: {ColorUtility.ToHtmlStringRGBA(color)}");
 
-                            Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(color));
+                            Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(Color.white));
                         }
                         Instance.unsavedLabelData.Labels[guid].Text = labelText;
+                        Instance.unsavedLabelData.Labels[guid].Color = ColorUtility.ToHtmlStringRGBA(color);
 
                         Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openStorageGameObject, Instance.openEntityName, color);
                     }
@@ -729,9 +730,10 @@ namespace SimpleLabels
                         {
                             if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"No unsavedLabelData entry, creating new. Color: {ColorUtility.ToHtmlStringRGBA(color)}");
 
-                            Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(color));
+                            Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(Color.white));
                         }
                         Instance.unsavedLabelData.Labels[guid].Text = labelText;
+                        Instance.unsavedLabelData.Labels[guid].Color = ColorUtility.ToHtmlStringRGBA(color);
                         Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openStorageGameObject, Instance.openEntityName, color);
 
                         LabelTracker.UpdateLabelText(guid, labelText);
@@ -844,9 +846,10 @@ namespace SimpleLabels
                         {
 
                             if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"No unsavedLabelData entry, creating new. Color: {ColorUtility.ToHtmlStringRGBA(color)}");
-                            Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(color));
+                            Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(Color.white));
                         }
                         Instance.unsavedLabelData.Labels[guid].Text = labelText;
+                        Instance.unsavedLabelData.Labels[guid].Color = ColorUtility.ToHtmlStringRGBA(color);
                         Instance.UpdateLabelPrefabInGameObject(guid, labelText, Instance.openStorageGameObject, Instance.openEntityName, color);
 
                         LabelTracker.UpdateLabelText(guid, labelText);
@@ -928,9 +931,11 @@ namespace SimpleLabels
                     if (!Instance.unsavedLabelData.Labels.ContainsKey(guid))
                     {
                         if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"No unsavedLabelData entry, creating new. Color: {ColorUtility.ToHtmlStringRGBA(color)}");
-                        Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(color));
+                        Instance.unsavedLabelData.Labels[guid] = new LabelInfo("", ColorUtility.ToHtmlStringRGBA(Color.white));
                     }
                     Instance.unsavedLabelData.Labels[guid].Text = labelText;
+                    Instance.unsavedLabelData.Labels[guid].Color = ColorUtility.ToHtmlStringRGBA(color);
+
                     Instance.UpdateLabelPrefabInGameObject(guid, labelText, station.gameObject, stationName, color);
 
                     LabelTracker.UpdateLabelText(guid, labelText);
