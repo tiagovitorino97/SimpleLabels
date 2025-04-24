@@ -8,7 +8,7 @@ using System.Runtime.InteropServices.ComTypes;
 
 [assembly: MelonInfo(typeof(LabelMod), "SimpleLabels", "1.2.0", "Tiago")]
 [assembly: MelonGame("TVGS", "Schedule I")]
-//[assembly: MelonOptionalDependencies("FishNet.Runtime")]
+[assembly: System.Reflection.AssemblyMetadata("NexusModID", "680")]
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
