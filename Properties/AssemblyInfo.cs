@@ -8,6 +8,7 @@ using System.Runtime.InteropServices.ComTypes;
 
 [assembly: MelonInfo(typeof(LabelMod), "SimpleLabels", "1.1.2", "Tiago")]
 [assembly: MelonGame("TVGS", "Schedule I")]
+//[assembly: MelonOptionalDependencies("FishNet.Runtime")]
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.

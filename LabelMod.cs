@@ -17,17 +17,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-
 namespace SimpleLabels
 {
     public class LabelMod : MelonMod
     {
+
+
         public static LabelMod Instance { get; private set; }
 
         private TMP_InputField customStorageInputField;
@@ -55,6 +55,7 @@ namespace SimpleLabels
         private MelonPreferences_Entry<bool> modSettingsShowClipboardRoutesLabels;
         private MelonPreferences_Entry<bool> modSettingsShowClipboardStationsLabels;
         private Dictionary<string, MelonPreferences_Entry<string>> modSettingsColors = new Dictionary<string, MelonPreferences_Entry<string>>();
+        private Dictionary<TMP_InputField, List<GameObject>> colorPickerButtons = new Dictionary<TMP_InputField, List<GameObject>>();
 
         //Label Data
         private LabelData labelData;
@@ -102,53 +103,6 @@ namespace SimpleLabels
             modSettingsConsoleDebug = debugSettings.CreateEntry("Show console debug", false);
             modSettingsConsoleDebug.OnEntryValueChanged.Subscribe(modSettingsConsoleDebugOnChange);
 
-            SetupModManagerIntegration();
-
-        }
-
-        private void SetupModManagerIntegration()
-        {
-            try
-            {
-                // Try to find the ModManagerPhoneApp type
-                Type modSettingsType = null;
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-                {
-                    modSettingsType = asm.GetType("ModManagerPhoneApp.ModSettingsEvents");
-                    if (modSettingsType != null)
-                    {
-                        break;
-                    }
-                }
-
-                if (modSettingsType != null)
-                {
-                    // Get the event
-                    var evt = modSettingsType.GetEvent("OnPreferencesSaved", BindingFlags.Static | BindingFlags.Public);
-                    if (evt != null)
-                    {
-                        // Create a delegate for our handler
-                        Delegate handler = Delegate.CreateDelegate(evt.EventHandlerType, this, nameof(colorPickerUpdateUserColor));
-
-                        // Subscribe to the event
-                        evt.AddEventHandler(null, handler);
-
-                        LoggerInstance.Msg("Successfully subscribed to ModManagerPhoneApp's OnPreferencesSaved event");
-                    }
-                    else
-                    {
-                        LoggerInstance.Msg("ModManagerPhoneApp found but OnPreferencesSaved event not found");
-                    }
-                }
-                else
-                {
-                    LoggerInstance.Msg("ModManagerPhoneApp not found - optional integration will not be available");
-                }
-            }
-            catch (Exception ex)
-            {
-                LoggerInstance.Error($"Error setting up ModManagerPhoneApp integration: {ex}");
-            }
         }
 
         public void InitializeColorSettings()
@@ -183,159 +137,26 @@ namespace SimpleLabels
             }
         }
 
-        public void colorPickerUpdateUserColor()
-        {
-            MelonCoroutines.Start(UpdateColorsAfterDelay());
-        }
-
-        private System.Collections.IEnumerator UpdateColorsAfterDelay()
-        {
-            yield return new WaitForSeconds(0.2f);
-
-            // Update colors for customStorageInputField
-            if (customStorageInputField != null)
-            {
-                var colorPickerObj = customStorageInputField.transform.Find("ColorPicker");
-                if (colorPickerObj != null)
-                {
-                    int colorIndex = 0;
-                    foreach (var child in colorPickerObj.transform)
-                    {
-                        // Use TryCast instead of direct cast
-                        var colorButton = child.Cast<Transform>();
-                        if (colorButton == null)
-                        {
-                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Skipping child: Unable to cast {child.GetType()} to Transform");
-                            continue;
-                        }
-
-                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Iterating through colorButton: {colorButton.name}");
-                        if (colorButton.name.StartsWith("ColorButton_") && colorIndex < modSettingsColors.Count)
-                        {
-                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Found ColorButton with correct prefix. Checking modSettingsColors at index: {colorIndex}");
-                            if (modSettingsColors.ElementAt(colorIndex).Value != null)
-                            {
-                                string hexColor = "#" + modSettingsColors.ElementAt(colorIndex).Value.Value;
-                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Attempting to parse color: {hexColor}");
-                                if (ColorUtility.TryParseHtmlString(hexColor, out Color color))
-                                {
-                                    var imageComponent = colorButton.GetComponent<Image>();
-                                    if (imageComponent != null)
-                                    {
-                                        imageComponent.color = color;
-                                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Updated color of {colorButton.name} to {color}");
-                                    }
-                                    else
-                                    {
-                                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Image component not found on {colorButton.name}");
-                                    }
-                                }
-                                else
-                                {
-                                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Error($"Failed to parse color string: {hexColor}");
-                                }
-                            }
-                            else
-                            {
-                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"modSettingsColors[{colorIndex}].Value is null.");
-                            }
-                            colorIndex++;
-                        }
-                    }
-                }
-                else
-                {
-                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning("ColorPicker transform not found for customStorageInputField.");
-                }
-            }
-
-            // Update colors for customStationInputFields
-            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Iterating through customStationInputFields. Count: {customStationInputFields?.Count}");
-            foreach (var stationInputField in customStationInputFields)
-            {
-                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Processing stationInputField with key: {stationInputField.Key}, Value: {stationInputField.Value?.name}");
-                if (stationInputField.Value != null)
-                {
-                    var colorPickerObj = stationInputField.Value.transform.Find("ColorPicker");
-                    if (colorPickerObj != null)
-                    {
-                        int colorIndex = 0;
-                        foreach (var child in colorPickerObj.transform)
-                        {
-                            // Use TryCast instead of direct cast
-                            var colorButton = child.Cast<Transform>();
-                            if (colorButton == null)
-                            {
-                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Skipping child: Unable to cast {child.GetType()} to Transform");
-                                continue;
-                            }
-
-                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Iterating through colorButton: {colorButton.name}, Index: {colorIndex}");
-                            if (colorButton.name.StartsWith("ColorButton_") && colorIndex < modSettingsColors.Count)
-                            {
-                                if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Found ColorButton with correct prefix. Checking modSettingsColors at index: {colorIndex}");
-                                if (modSettingsColors.ElementAt(colorIndex).Value != null)
-                                {
-                                    string hexColor = "#" + modSettingsColors.ElementAt(colorIndex).Value.Value;
-                                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Attempting to parse color: {hexColor}");
-                                    if (ColorUtility.TryParseHtmlString(hexColor, out Color color))
-                                    {
-                                        var imageComponent = colorButton.GetComponent<Image>();
-                                        if (imageComponent != null)
-                                        {
-                                            imageComponent.color = color;
-                                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Updated color of {colorButton.name} for {stationInputField.Value.name} to {color}");
-                                        }
-                                        else
-                                        {
-                                            if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Image component not found on {colorButton.name} for {stationInputField.Value.name}");
-                                        }
-                                    }
-                                    else
-                                    {
-                                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Error($"Failed to parse color string for {stationInputField.Value.name}: {hexColor}");
-                                    }
-                                }
-                                else
-                                {
-                                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"modSettingsColors[{colorIndex}].Value is null for {stationInputField.Value.name}.");
-                                }
-                                colorIndex++;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"ColorPicker transform not found for {stationInputField.Value?.name}.");
-                    }
-                }
-                else
-                {
-                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning("stationInputField.Value is null.");
-                }
-            }
-        }
-
         private void modSettingsAutoFocusLabelOnChange(bool oldValue, bool newValue)
         {
             modSettingsAutoFocusLabel.Value = newValue;
         }
-        
+
         private void modSettingsConsoleDebugOnChange(bool oldValue, bool newValue)
         {
             modSettingsConsoleDebug.Value = newValue;
         }
-        
+
         private void modSettingsShowInputLabelOnChange(bool oldValue, bool newValue)
         {
             modSettingsShowClipboardRoutesLabels.Value = newValue;
         }
-        
+
         private void modSettingsShowClipboardRoutesLabelsOnChange(bool oldValue, bool newValue)
         {
             modSettingsShowClipboardRoutesLabels.Value = newValue;
         }
-        
+
         private void modSettingsShowClipboardStationsLabelsOnChange(bool oldValue, bool newValue)
         {
             modSettingsShowClipboardStationsLabels.Value = newValue;
@@ -343,7 +164,6 @@ namespace SimpleLabels
 
         private void OnColorSettingChanged(string oldValue, string newValue, int index)
         {
-
             if (Instance.modSettingsConsoleDebug.Value)
                 MelonLogger.Msg($"Color setting '{modSettingsColors.ElementAt(index)}' changed from '{oldValue}' to '{newValue}'");
 
@@ -352,6 +172,9 @@ namespace SimpleLabels
                 modSettingsColors.ElementAt(index).Value.Value = newValue;
                 if (Instance.modSettingsConsoleDebug.Value)
                     MelonLogger.Msg($"New value '{newValue}' is a valid HTML color string and has been set.");
+
+                // Update all color picker buttons
+                UpdateColorPickerButtons();
             }
             else
             {
@@ -359,7 +182,6 @@ namespace SimpleLabels
                 if (Instance.modSettingsConsoleDebug.Value)
                     MelonLogger.Warning($"New value '{newValue}' is not a valid HTML color string. String has been set to old value.");
             }
-
         }
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
@@ -428,7 +250,7 @@ namespace SimpleLabels
             wasStorageRackOpen = false;
             wasStationOpen = false;
         }
-        
+
         public void DeactivateSimpleLabelsMod()
         {
             unsavedLabelData = new LabelData();
@@ -499,6 +321,32 @@ namespace SimpleLabels
             if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Saved all label changes");
         }
 
+        /*
+        public void AddRandomOnlineLabelData()
+        {
+            var random = new System.Random();
+            var randomGuid = Guid.NewGuid().ToString();
+            var randomText = $"Label_{random.Next(1, 100)}";
+            var randomColor = ColorUtility.ToHtmlStringRGB(new Color(
+                (float)random.NextDouble(),
+                (float)random.NextDouble(),
+                (float)random.NextDouble()
+            ));
+
+            var randomLabelData = new OnlineLabelData
+            {
+                Guid = randomGuid,
+                Text = randomText,
+                Color = randomColor
+            };
+
+            onlineLabelSyncing.Add(randomLabelData);
+
+            if (modSettingsConsoleDebug.Value)
+                MelonLogger.Msg($"Added random OnlineLabelData: {randomGuid}, {randomText}, #{randomColor}");
+        }
+        */
+
 
         [HarmonyPatch(typeof(StorageMenu), nameof(StorageMenu.Open), new Type[] { typeof(StorageEntity) })]
         class StorageMenu_Open_Patch
@@ -506,6 +354,8 @@ namespace SimpleLabels
 
             static void Postfix(StorageMenu __instance, StorageEntity entity)
             {
+
+                //Instance.AddRandomOnlineLabelData();
 
                 if (!Instance.modSettingsShowInputLabel.Value) return;
 
@@ -1124,10 +974,6 @@ namespace SimpleLabels
                 float inputFieldHeight = inputFieldRT.rect.height;
                 rectTransform.anchoredPosition = new Vector2(0, -inputFieldHeight / 2 - 30); // Position 30 units below the bottom of the input field
 
-                // Add background (optional)
-                Image bg = colorPickerGO.AddComponent<Image>();
-                bg.color = new Color(1, 1, 1, 0.7f);
-
                 // Define colors to display (10 colors)
                 List<Color> colors = new List<Color>();
 
@@ -1142,7 +988,7 @@ namespace SimpleLabels
                 float spacing = 10f;
                 float totalWidth = (colors.Count * buttonSize) + ((colors.Count - 1) * spacing);
                 float startX = -totalWidth / 2 + buttonSize / 2;
-
+                List<GameObject> buttons = new List<GameObject>();
                 for (int i = 0; i < colors.Count; i++)
                 {
                     GameObject colorButtonGO = new GameObject($"ColorButton_{i}");
@@ -1166,8 +1012,10 @@ namespace SimpleLabels
                     Outline outline = colorButtonGO.AddComponent<Outline>();
                     outline.effectColor = Color.black;
                     outline.effectDistance = new Vector2(1, 1);
-                }
 
+                    buttons.Add(colorButtonGO);
+                }
+                colorPickerButtons[inputField] = buttons;
                 // Initially hide the color picker
                 colorPickerGO.SetActive(true);
                 LoggerInstance.Msg("Color picker created successfully");
@@ -1178,6 +1026,28 @@ namespace SimpleLabels
             {
                 LoggerInstance.Error($"Failed to create color picker: {ex.Message}");
                 return null;
+            }
+        }
+
+        private void UpdateColorPickerButtons()
+        {
+            foreach (var kvp in colorPickerButtons)
+            {
+                TMP_InputField inputField = kvp.Key;
+                List<GameObject> buttons = kvp.Value;
+
+                for (int i = 0; i < buttons.Count && i < modSettingsColors.Count; i++)
+                {
+                    var pair = modSettingsColors.ElementAt(i);
+                    if (ColorUtility.TryParseHtmlString("#" + pair.Value.Value, out Color newColor))
+                    {
+                        var buttonImage = buttons[i].GetComponent<Image>();
+                        if (buttonImage != null)
+                        {
+                            buttonImage.color = newColor;
+                        }
+                    }
+                }
             }
         }
 
@@ -1754,7 +1624,6 @@ namespace SimpleLabels
             return allowedNames.Contains(storageName);
         }
 
-
         public static class LabelTracker
         {
             public static Dictionary<string, Tuple<string, GameObject, string>> StorageEntities = new Dictionary<string, Tuple<string, GameObject, string>>();
@@ -1971,6 +1840,8 @@ namespace SimpleLabels
                     objectsData.Add(obj.GUID.ToString());
 
                 }
+
+
 
                 GameObject objectsUIContents = __instance.gameObject.transform.Find("Contents").gameObject;
 
