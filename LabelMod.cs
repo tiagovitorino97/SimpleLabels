@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Il2CppScheduleOne.EntityFramework;
 using Il2CppScheduleOne.Management;
 using Il2CppScheduleOne.ObjectScripts;
@@ -319,32 +319,6 @@ namespace SimpleLabels
 
             if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg("Saved all label changes");
         }
-
-        /*
-        public void AddRandomOnlineLabelData()
-        {
-            var random = new System.Random();
-            var randomGuid = Guid.NewGuid().ToString();
-            var randomText = $"Label_{random.Next(1, 100)}";
-            var randomColor = ColorUtility.ToHtmlStringRGB(new Color(
-                (float)random.NextDouble(),
-                (float)random.NextDouble(),
-                (float)random.NextDouble()
-            ));
-
-            var randomLabelData = new OnlineLabelData
-            {
-                Guid = randomGuid,
-                Text = randomText,
-                Color = randomColor
-            };
-
-            onlineLabelSyncing.Add(randomLabelData);
-
-            if (modSettingsConsoleDebug.Value)
-                MelonLogger.Msg($"Added random OnlineLabelData: {randomGuid}, {randomText}, #{randomColor}");
-        }
-        */
 
 
         [HarmonyPatch(typeof(StorageMenu), nameof(StorageMenu.Open), new Type[] { typeof(StorageEntity) })]
