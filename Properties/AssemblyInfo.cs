@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 
 
-[assembly: MelonInfo(typeof(LabelMod), "SimpleLabels", "1.2.0", "Tiago")]
+[assembly: MelonInfo(typeof(LabelMod), "SimpleLabels", "1.2.1", "Tiago")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 [assembly: System.Reflection.AssemblyMetadata("NexusModID", "680")]
 // General Information about an assembly is controlled through the following

@@ -22,12 +22,11 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
+
 namespace SimpleLabels
 {
     public class LabelMod : MelonMod
     {
-
-
         public static LabelMod Instance { get; private set; }
 
         private TMP_InputField customStorageInputField;
@@ -355,7 +354,7 @@ namespace SimpleLabels
             static void Postfix(StorageMenu __instance, StorageEntity entity)
             {
 
-                //Instance.AddRandomOnlineLabelData();
+               
 
                 if (!Instance.modSettingsShowInputLabel.Value) return;
 
@@ -922,14 +921,14 @@ namespace SimpleLabels
                 tempInputField = inputFieldGameObject.AddComponent<TMP_InputField>();
 
                 var textComponent = textAreaGO.AddComponent<TextMeshProUGUI>();
-                textComponent.fontSize = 24; // Larger font
+                textComponent.fontSize = 24;
                 textComponent.color = Color.black;
                 textComponent.alignment = TextAlignmentOptions.Left;
                 textComponent.enableWordWrapping = false;
 
                 var placeholderText = placeholderGO.AddComponent<TextMeshProUGUI>();
                 placeholderText.text = "Label";
-                placeholderText.fontSize = 24; // Larger font
+                placeholderText.fontSize = 24;
                 placeholderText.color = new Color(0.5f, 0.5f, 0.5f);
                 placeholderText.alignment = TextAlignmentOptions.Left;
                 placeholderText.enableWordWrapping = false;
@@ -1734,41 +1733,42 @@ namespace SimpleLabels
         [HarmonyPatch(typeof(RouteListFieldUI), "Refresh")]
         public static class RouteListFieldUIRefreshPatch
         {
+
+
             [HarmonyPostfix]
             public static void Postfix(Il2CppSystem.Collections.Generic.List<AdvancedTransitRoute> newVal, RouteListFieldUI __instance)
             {
+                
                 if (!Instance.modSettingsShowClipboardRoutesLabels.Value) return;
-                var routeData = new Dictionary<string, string>();
-                var routeDataIndexer = 0;
 
-                foreach (AdvancedTransitRoute route in newVal)
-                {
-                    AdvancedTransitRouteData data = route.GetData();
-                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Route from {data?.SourceGUID} to {data?.DestinationGUID}");
-
-                    routeData[data.SourceGUID] = data.DestinationGUID;
-
-                }
 
                 GameObject routesUIContents = __instance.gameObject.transform.Find("Contents").gameObject;
 
-                foreach (Il2CppSystem.Object child in routesUIContents.transform)
+                foreach (Il2CppSystem.Object entry in routesUIContents.transform)
                 {
-                    Transform childTransform = child.TryCast<Transform>(); // Safely cast to Transform
-                    if (childTransform == null)
+                    Transform entryTransform = entry.TryCast<Transform>();
+                    if (entryTransform == null)
                     {
-                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Skipping child: Unable to cast {child.GetType()} to Transform");
+                        if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Skipping child: Unable to cast {entry.GetType()} to Transform");
                         continue;
                     }
 
-                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Processing child: {childTransform.name}");
+                    if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"Processing child: {entryTransform.name}");
 
-                    if (childTransform.name.Contains("Entry") && childTransform.gameObject.active)
+                    if (entryTransform.name.Contains("Entry") && entryTransform.gameObject.active)
                     {
-                        var sourceGUID = routeData.ElementAt(routeDataIndexer).Key;
-                        var destinationGUID = routeData.ElementAt(routeDataIndexer).Value;
+                        RouteEntryUI routeEntryUI = entryTransform.GetComponent<RouteEntryUI>();
+                        AdvancedTransitRoute advancedTransitRoute = routeEntryUI.AssignedRoute;
+                        AdvancedTransitRouteData advancedTransitRouteData = advancedTransitRoute.GetData();
 
-                        Transform sourceLabelTransform = childTransform.Find("Source/Label");
+                        string sourceGUID = advancedTransitRouteData.SourceGUID;
+                        string destinationGUID = advancedTransitRouteData.DestinationGUID;
+
+                        MelonLogger.Warning($"Route from {sourceGUID} to {destinationGUID}");
+
+
+
+                        Transform sourceLabelTransform = entryTransform.Find("Source/Label");
                         var textComponent = sourceLabelTransform.GetComponentInChildren<TextMeshProUGUI>();
                         if (sourceLabelTransform != null)
                         {
@@ -1787,9 +1787,9 @@ namespace SimpleLabels
                             }
                             else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"TextMeshProUGUI component text is None {sourceLabelTransform.name}");
                         }
-                        else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Transform 'Source/Label' not found under {childTransform.name}");
+                        else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Transform 'Source/Label' not found under {entryTransform.name}");
 
-                        Transform destinationLabelTransform = childTransform.Find("Destination/Label");
+                        Transform destinationLabelTransform = entryTransform.Find("Destination/Label");
                         textComponent = destinationLabelTransform.GetComponentInChildren<TextMeshProUGUI>();
                         if (destinationLabelTransform != null)
                         {
@@ -1812,19 +1812,20 @@ namespace SimpleLabels
                             else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Msg($"TextMeshProUGUI component text is None {destinationLabelTransform.name}");
 
                         }
-                        else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Transform 'Destination/Label' not found under {childTransform.name}");
+                        else if (Instance.modSettingsConsoleDebug.Value) MelonLogger.Warning($"Transform 'Destination/Label' not found under {entryTransform.name}");
 
-                        routeDataIndexer++;
+
+
+
                     }
 
-
+                    
                 }
-
 
             }
         }
 
-        [HarmonyPatch(typeof(ObjectListFieldUI), "Refresh")]
+        [HarmonyPatch(typeof(ObjectListFieldUI), "Refresh")]  //TODO: CHANGE ALSO THE CODE HERE AS THE RouteListFieldUIRefreshPatch
         public static class ObjectListFieldUIRefreshPatch
         {
             [HarmonyPostfix]
