@@ -24,9 +24,9 @@ namespace SimpleLabels.UI
             { "UI/StorageMenu", new Vector2(0.5f, 0.65f) },
             { "UI/Stations/PackagingStation", new Vector2(0.5f, 0.6f) },
             { "UI/Stations/ChemistryStation", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/LabOven", new Vector2(0.5f, 0.6f) },
-            { "UI/Stations/BrickPress", new Vector2(0.5f, 0.55f) },
-            { "UI/Stations/Cauldron", new Vector2(0.5f, 0.55f) },
+            { "UI/Stations/LabOven", new Vector2(0.5f, 0.65f) },
+            { "UI/Stations/BrickPress", new Vector2(0.5f, 0.6f) },
+            { "UI/Stations/Cauldron", new Vector2(0.5f, 0.65f) },
             { "UI/Stations/MixingStation", new Vector2(0.5f, 0.65f) },
             { "UI/Stations/DryingRack", new Vector2(0.5f, 0.7f) }
         };

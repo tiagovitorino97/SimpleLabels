@@ -60,7 +60,7 @@ namespace SimpleLabels.UI
                     var buttonRectTransform = button.AddComponent<RectTransform>();
                     buttonRectTransform.sizeDelta = new Vector2(buttonSize, buttonSize);
                     buttonRectTransform.anchoredPosition = new Vector2(startX + i * (buttonSize + spacing), 0);
-
+                    
                     var buttonImage = button.AddComponent<Image>();
                     buttonImage.color =
                         ColorUtility.TryParseHtmlString(colorOptions.Values.ElementAt(i).Value, out var color)

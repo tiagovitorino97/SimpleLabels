@@ -46,6 +46,10 @@ namespace SimpleLabels.UI
             paperBackground.transform.SetParent(labelObject.transform);
             paperBackground.transform.localPosition = Vector3.zero;
             paperBackground.transform.localScale = new Vector3(2f, 0.6f, 0.1f);
+            
+            paperBackground.GetComponent<BoxCollider>().extents = Vector3.zero;
+            
+            //Object.Destroy(paperBackground.GetComponent<UnityEngine.BoxCollider>());
 
             _labelMaterial = new Material(Shader.Find("Universal Render Pipeline/Simple Lit"));
             if (_labelMaterial != null)
@@ -57,7 +61,7 @@ namespace SimpleLabels.UI
             textObject.transform.SetParent(labelObject.transform);
             textObject.transform.localPosition = new Vector3(0, 0, -0.052f);
             textObject.transform.localScale = new Vector3(1.1f, 1.25f, 1);
-
+            
             var textMesh = textObject.AddComponent<TextMeshPro>();
             textMesh.fontSizeMin = 1.4f;
             textMesh.fontSizeMax = 3;
@@ -68,7 +72,7 @@ namespace SimpleLabels.UI
             textMesh.color = Color.black;
             textMesh.enableWordWrapping = true;
             textMesh.margin = new Vector4(0.02f, 0.02f, 0.02f, 0.02f);
-
+            
             var textRect = textObject.GetComponent<RectTransform>();
             textRect.sizeDelta = new Vector2(1.8f, 0.5f);
             textRect.anchorMin = new Vector2(0.5f, 0.5f);

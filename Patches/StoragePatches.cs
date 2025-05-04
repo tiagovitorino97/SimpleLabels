@@ -32,6 +32,10 @@ namespace SimpleLabels.Patches
             _currentInputGameObject = __instance.gameObject;
             _currentStorageGameObject = entity.gameObject;
             _currentStorageGuid = GetStorageGuid(entity);
+            var inputGameObjectName = _currentInputGameObject.name.Replace("(Clone)", "").Replace("_Built", "")
+                .Replace("Mk2", "").Replace("_", "").Trim();
+            InputFieldManager.DeactivateInputField(inputGameObjectName);
+            
             if (!_allowedStorageNames.Contains(entity.StorageEntityName)) return;
 
             Logger.Msg($"CurrentStationGameObject = {_currentStorageGameObject.name}");
