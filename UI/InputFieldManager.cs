@@ -79,8 +79,18 @@ namespace SimpleLabels.UI
             }
 
             ToggleOnOffButtons.Clear();
+    
+            foreach (var entityName in EntityInicatorNames.Values)
+            {
+                if (entityName == null) continue;
+                GameObject.Destroy(entityName.gameObject);
+            }
+    
+            EntityInicatorNames.Clear();
 
             ColorPickerManager.Terminate();
+            _currentInputField = null;
+            _currentNumericInputField = null;
             Logger.Msg("InputFieldManager terminated.");
         }
 
@@ -402,7 +412,7 @@ namespace SimpleLabels.UI
 
 
             TextMeshProUGUI textMeshPro = placeholder.AddComponent<TextMeshProUGUI>();
-            textMeshPro.text = "Press enter after editing...";
+            textMeshPro.text = "Press Enter to confirm changes...";
             textMeshPro.fontSize = ModSettings.DEFAULT_FONT_SIZE;
             textMeshPro.color = new Color(0.5f, 0.5f, 0.5f);
             textMeshPro.alignment = TextAlignmentOptions.Left;

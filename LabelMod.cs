@@ -14,7 +14,6 @@ namespace SimpleLabels
         {
             base.OnInitializeMelon();
             ModSettings.Initialize();
-            LabelDataManager.Initialize();
         }
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -38,6 +37,7 @@ namespace SimpleLabels
 
         private static void ActivateMod()
         {
+            LabelDataManager.Initialize();
             InputFieldManager.Initialize();
             SaveManager.Instance.onSaveStart.AddListener((UnityAction)(() => LabelDataManager.SaveLabelTrackerData()));
             ;

@@ -18,6 +18,10 @@ namespace SimpleLabels.Data
             _dataDirectory = Path.Combine(MelonEnvironment.ModsDirectory, "SimpleLabels");
             _dataFilePath = Path.Combine(_dataDirectory, "Labels.json");
             EnsureDataDirectoryExists();
+    
+            // Reset LabelTracker before loading data
+            ResetLabelTracker();
+    
             LoadDataIntoLabelTracker();
             Logger.Msg("Data directory initialized");
         }
@@ -163,6 +167,27 @@ namespace SimpleLabels.Data
             {
                 Logger.Error($"Failed to save data to {_dataFilePath}: {e.Message}");
             }
+        }
+        
+        private static void ResetLabelTracker()
+        {
+            // Access the Dictionary via reflection since it's private
+            var entityDataDictionary = typeof(LabelTracker)
+                .GetField("EntityDataDictionary", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+                .GetValue(null) as Dictionary<string, LabelTracker.EntityData>;
+    
+            if (entityDataDictionary != null)
+            {
+                entityDataDictionary.Clear();
+                Logger.Msg("LabelTracker reset successfully");
+            }
+            else
+            {
+                Logger.Error("Failed to reset LabelTracker");
+            }
+    
+            // Reset currently managed entity
+            LabelTracker.SetCurrentlyManagedEntity(null);
         }
     }
 }
