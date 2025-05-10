@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using MelonLoader;
 using SimpleLabels;
 
-[assembly: MelonInfo(typeof(LabelMod), "SimpleLabels", "1.2.6", "Tiago")]
+[assembly: MelonInfo(typeof(LabelMod), "SimpleLabels", "1.2.7", "tiagovito")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 [assembly: AssemblyMetadata("NexusModID", "680")]
 

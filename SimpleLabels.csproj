@@ -67,6 +67,9 @@
         <Reference Include="UnityEngine.CoreModule">
             <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll</HintPath>
         </Reference>
+        <Reference Include="UnityEngine.ImageConversionModule">
+          <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.ImageConversionModule.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine.InputLegacyModule">
             <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModule.dll</HintPath>
         </Reference>
@@ -75,6 +78,9 @@
         </Reference>
         <Reference Include="UnityEngine.UI">
             <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.UI.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.UIModule">
+          <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.UIModule.dll</HintPath>
         </Reference>
     </ItemGroup>
     <ItemGroup>
@@ -91,11 +97,21 @@
         <Compile Include="Settings\ModManagerIntegration.cs"/>
         <Compile Include="Settings\ModSettings.cs"/>
         <Compile Include="UI\ColorPickerManager.cs"/>
+        <Compile Include="UI\GUIManager.cs" />
         <Compile Include="UI\InputFieldManager.cs"/>
         <Compile Include="UI\LabelApplier.cs"/>
         <Compile Include="UI\LabelInputDataLoader.cs"/>
         <Compile Include="UI\LabelPrefabManager.cs"/>
         <Compile Include="Utils\Logger.cs"/>
+        <Compile Include="Utils\SpriteManager.cs" />
+    </ItemGroup>
+    <ItemGroup>
+      <EmbeddedResource Include="Resources\UIBigSprite.png" />
+      <EmbeddedResource Include="Resources\UISmallSprite.png" />
+    </ItemGroup>
+    <ItemGroup>
+      <EmbeddedResource Include="Resources\Off.png" />
+      <EmbeddedResource Include="Resources\On.png" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
     <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

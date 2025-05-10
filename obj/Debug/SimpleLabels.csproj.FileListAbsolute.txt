@@ -87,3 +87,6 @@ C:\Users\tiago\RiderProjects\SimpleLabels\SimpleLabels\bin\Debug\Il2CppPathfindi
 C:\Users\tiago\RiderProjects\SimpleLabels\SimpleLabels\bin\Debug\UnityEngine.DirectorModule.dll
 C:\Users\tiago\RiderProjects\SimpleLabels\SimpleLabels\bin\Debug\UnityEngine.SubsystemsModule.dll
 C:\Users\tiago\RiderProjects\SimpleLabels\SimpleLabels\bin\Debug\Newtonsoft.Json.dll
+C:\Users\tiago\RiderProjects\SimpleLabels\SimpleLabels\bin\Debug\UnityEngine.ImageConversionModule.dll
+C:\Users\tiago\RiderProjects\SimpleLabels\SimpleLabels\bin\Debug\UnityEngine.UnityWebRequestWWWModule.dll
+C:\Users\tiago\RiderProjects\SimpleLabels\SimpleLabels\bin\Debug\UnityEngine.AssetBundleModule.dll

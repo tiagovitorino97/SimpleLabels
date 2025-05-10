@@ -58,7 +58,7 @@ namespace SimpleLabels.Patches
                         string.Empty,
                         ModSettings.LabelDefaultColor.Value,
                         ModSettings.LabelDefaultSize.Value,
-                        ModSettings.FontDefaultSize.Value,
+                        ModSettings.DEFAULT_FONT_SIZE,
                         ModSettings.FontDefaultColor.Value
                     );
                 else

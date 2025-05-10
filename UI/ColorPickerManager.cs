@@ -4,6 +4,7 @@ using System.Linq;
 using Il2CppTMPro;
 using SimpleLabels.Data;
 using SimpleLabels.Settings;
+using SimpleLabels.Utils;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -19,10 +20,10 @@ namespace SimpleLabels.UI
 
     public static class ColorPickerManager
     {
-        private static readonly Dictionary<TMP_InputField, GameObject> LabelColorPickers =
+        public static Dictionary<TMP_InputField, GameObject> LabelColorPickers =
             new Dictionary<TMP_InputField, GameObject>();
 
-        private static readonly Dictionary<TMP_InputField, GameObject> FontColorPickers =
+        public static Dictionary<TMP_InputField, GameObject> FontColorPickers =
             new Dictionary<TMP_InputField, GameObject>();
 
         public static void CreateColorPicker(TMP_InputField inputField, ColorPickerType type)
@@ -41,13 +42,13 @@ namespace SimpleLabels.UI
 
                 var rectTransform = colorPicker.AddComponent<RectTransform>();
                 rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-                rectTransform.anchorMax = new Vector2(0.5f, 0f);
-                rectTransform.pivot = new Vector2(0.5f, 1f);
-                rectTransform.anchoredPosition = new Vector2(type == ColorPickerType.Font ? 240 : -100, -20);
+                rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                rectTransform.anchoredPosition = new Vector2(type == ColorPickerType.Font ? 245 : -110, -80);
                 rectTransform.sizeDelta = new Vector2(300, 40);
 
                 var buttonSize = 30f;
-                var spacing = 5f;
+                var spacing = 3f;
                 var numberOfButtons = colorOptions.Values.Count;
                 var startX = -(numberOfButtons * buttonSize + (numberOfButtons - 1) * spacing) / 2;
 
@@ -60,27 +61,20 @@ namespace SimpleLabels.UI
                     var buttonRectTransform = button.AddComponent<RectTransform>();
                     buttonRectTransform.sizeDelta = new Vector2(buttonSize, buttonSize);
                     buttonRectTransform.anchoredPosition = new Vector2(startX + i * (buttonSize + spacing), 0);
-                    
+
                     var buttonImage = button.AddComponent<Image>();
+                    buttonImage.type = Image.Type.Sliced;
+                    buttonImage.sprite = SpriteManager.LoadEmbeddedSprite("UISmallSprite.png", new Vector4(5, 5, 5, 5));
                     buttonImage.color =
                         ColorUtility.TryParseHtmlString(colorOptions.Values.ElementAt(i).Value, out var color)
                             ? color
                             : Color.white;
 
-                    var outline = button.AddComponent<Outline>();
-                    outline.effectColor = Color.black;
-                    outline.effectDistance = new Vector2(1, 1);
-
                     var buttonComponent = button.AddComponent<Button>();
-                    var colorIndex = i; // Capture the index for the lambda
                     buttonComponent.onClick.AddListener((UnityAction)(() =>
                     {
-                        var currentOptions = type == ColorPickerType.Label
-                            ? ModSettings.LabelColorOptionsDictionary
-                            : ModSettings.FontColorOptionsDictionary;
-
-                        if (ColorUtility.TryParseHtmlString(currentOptions.Values.ElementAt(colorIndex).Value,
-                                out var currentColor)) OnColorSelected(inputField, currentColor, type);
+                        // Pass the button itself to OnColorSelected instead of trying to look up the color
+                        OnColorSelected(inputField, buttonComponent, type);
                     }));
                 }
 
@@ -93,8 +87,13 @@ namespace SimpleLabels.UI
             }
         }
 
-        private static void OnColorSelected(TMP_InputField inputField, Color selectedColor, ColorPickerType type)
+        private static void OnColorSelected(TMP_InputField inputField, Button colorButton, ColorPickerType type)
         {
+            // Get the current color directly from the button's image component
+            var buttonImage = colorButton.GetComponent<Image>();
+            if (buttonImage == null) return;
+
+            var selectedColor = buttonImage.color;
             var colorHex = "#" + ColorUtility.ToHtmlStringRGB(selectedColor);
 
             if (type == ColorPickerType.Label)
@@ -133,6 +132,33 @@ namespace SimpleLabels.UI
                     ColorUtility.TryParseHtmlString(colorOptions.Values.ElementAt(i).Value, out var color)
                         ? color
                         : Color.red;
+            }
+        }
+
+
+        public static void SetLabelColorPickerButtonColor(int buttonIndex, Color color)
+        {
+            try
+            {
+                foreach (var pickerEntry in LabelColorPickers)
+                {
+                    var colorPicker = pickerEntry.Value;
+
+                    // Make sure the color picker exists and has children
+                    if (colorPicker == null || colorPicker.transform.childCount <= buttonIndex ||
+                        buttonIndex < 0) continue;
+
+                    // Get the specific button at the given index
+                    var buttonTransform = colorPicker.transform.GetChild(buttonIndex);
+                    var buttonImage = buttonTransform.GetComponent<Image>();
+
+                    // Update the button color if it has an Image component
+                    if (buttonImage != null) buttonImage.color = color;
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Failed to update label color picker button at index {buttonIndex}: {e.Message}");
             }
         }
 

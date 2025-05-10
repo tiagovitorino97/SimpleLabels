@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Il2CppTMPro;
 using SimpleLabels.Data;
 using SimpleLabels.Settings;
+using SimpleLabels.Utils;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 using Logger = SimpleLabels.Utils.Logger;
+using Il2CppScheduleOne;
+using Il2CppScheduleOne.ItemFramework;
 
 // ReSharper disable All
 
@@ -18,17 +22,20 @@ namespace SimpleLabels.UI
     {
         public static Dictionary<string, TMP_InputField> InputFields = new Dictionary<string, TMP_InputField>();
         public static Dictionary<string, TMP_InputField> NumericInputFields = new Dictionary<string, TMP_InputField>();
+        public static Dictionary<string, GameObject> ContainersGameObjects = new Dictionary<string, GameObject>();
+        public static Dictionary<string, Button> ToggleOnOffButtons = new Dictionary<string, Button>();
+        public static Dictionary<string, TextMeshProUGUI> EntityInicatorNames = new Dictionary<string, TextMeshProUGUI>();
 
         public static Dictionary<string, Vector2> SupportedUITypes = new Dictionary<string, Vector2>()
         {
-            { "UI/StorageMenu", new Vector2(0.5f, 0.65f) },
-            { "UI/Stations/PackagingStation", new Vector2(0.5f, 0.6f) },
-            { "UI/Stations/ChemistryStation", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/LabOven", new Vector2(0.5f, 0.65f) },
-            { "UI/Stations/BrickPress", new Vector2(0.5f, 0.6f) },
-            { "UI/Stations/Cauldron", new Vector2(0.5f, 0.65f) },
-            { "UI/Stations/MixingStation", new Vector2(0.5f, 0.65f) },
-            { "UI/Stations/DryingRack", new Vector2(0.5f, 0.7f) }
+            { "UI/StorageMenu", new Vector2(0.5f, 0.7f) },
+            { "UI/Stations/PackagingStation", new Vector2(0.5f, 0.65f) },
+            { "UI/Stations/ChemistryStation", new Vector2(0.5f, 0.8f) },
+            { "UI/Stations/LabOven", new Vector2(0.5f, 0.70f) },
+            { "UI/Stations/BrickPress", new Vector2(0.5f, 0.65f) },
+            { "UI/Stations/Cauldron", new Vector2(0.5f, 0.7f) },
+            { "UI/Stations/MixingStation", new Vector2(0.5f, 0.70f) },
+            { "UI/Stations/DryingRack", new Vector2(0.5f, 0.75f) }
         };
 
         public static TMP_InputField _currentInputField;
@@ -56,28 +63,50 @@ namespace SimpleLabels.UI
             }
 
             NumericInputFields.Clear();
+
+            foreach (var container in ContainersGameObjects.Values)
+            {
+                if (container == null) continue;
+                GameObject.Destroy(container);
+            }
+
+            ContainersGameObjects.Clear();
+
+            foreach (var toggle in ToggleOnOffButtons.Values)
+            {
+                if (toggle == null) continue;
+                GameObject.Destroy(toggle.gameObject);
+            }
+
+            ToggleOnOffButtons.Clear();
+
+            ColorPickerManager.Terminate();
+            Logger.Msg("InputFieldManager terminated.");
         }
 
         public static void ActivateInputField(string gameObjectName)
         {
-            InputFields.First(x => x.Key.Contains(gameObjectName)).Value.gameObject
+            ContainersGameObjects.First(x => x.Key.Contains(gameObjectName)).Value.gameObject
                 .SetActive(true);
-            if (NumericInputFields.Any(x => x.Key.Contains(gameObjectName)))
-            {
-                NumericInputFields.First(x => x.Key.Contains(gameObjectName)).Value.gameObject
-                    .SetActive(true);
-            }
+
+            ToggleOnOffButtons.First(x => x.Key.Contains(gameObjectName)).Value.GetComponent<Image>().sprite =
+                SpriteManager.LoadEmbeddedSprite("On.png", Vector4.zero);
+            ToggleOnOffButtons.First(x => x.Key.Contains(gameObjectName)).Value.gameObject.SetActive(true);
         }
 
         public static void DeactivateInputField(string gameObjectName)
         {
-            InputFields.First(x => x.Key.Contains(gameObjectName)).Value.gameObject
+            ContainersGameObjects.First(x => x.Key.Contains(gameObjectName)).Value.gameObject
                 .SetActive(false);
-            if (NumericInputFields.Any(x => x.Key.Contains(gameObjectName)))
-            {
-                NumericInputFields.First(x => x.Key.Contains(gameObjectName)).Value.gameObject
-                    .SetActive(false);
-            }
+
+            ToggleOnOffButtons.First(x => x.Key.Contains(gameObjectName)).Value.GetComponent<Image>().sprite =
+                SpriteManager.LoadEmbeddedSprite("Off.png", Vector4.zero);
+            ToggleOnOffButtons.First(x => x.Key.Contains(gameObjectName)).Value.gameObject.SetActive(true);
+        }
+
+        public static void DisableToggleOnOffButton(string gameObjectName)
+        {
+            ToggleOnOffButtons.First(x => x.Key.Contains(gameObjectName)).Value.gameObject.SetActive(false);
         }
 
         public static TMP_InputField GetInputField(string gameObjectName)
@@ -88,6 +117,11 @@ namespace SimpleLabels.UI
         public static TMP_InputField GetNumericInputField(string gameObjectName)
         {
             return NumericInputFields.First(x => x.Key.Contains(gameObjectName)).Value;
+        }
+
+        public static TextMeshProUGUI GetEntityNameIndicator(string gameObjectName)
+        {
+            return EntityInicatorNames.First(x => x.Key.Contains(gameObjectName)).Value;
         }
 
         private static void CreateInputFields()
@@ -101,11 +135,21 @@ namespace SimpleLabels.UI
                     continue;
                 }
 
-                // Create main input field with reduced width
-                InputFields.Add(uiType.Key, CreateInputField(ui, uiType.Value, uiType.Key, true));
+                // Create container GameObject
+                GameObject containerGameObject = GUIManager.InitializeGUI(ui, uiType.Value, uiType.Key);
+                ContainersGameObjects.Add(uiType.Key, containerGameObject);
+
+                // Create On/Off Buttons
+                Button toggleOnOffButton = GUIManager.createOnOffButton(ui, uiType.Key);
+                ToggleOnOffButtons.Add(uiType.Key, toggleOnOffButton);
+
+                // Create main input field
+                TMP_InputField inputField = CreateInputField(containerGameObject, uiType.Key);
+                InputFields.Add(uiType.Key, inputField);
 
                 // Create numeric input field
-                NumericInputFields.Add(uiType.Key, CreateNumericInputField(ui, uiType.Value, uiType.Key));
+                TMP_InputField numericInputField = CreateNumericInputField(containerGameObject, uiType.Key);
+                NumericInputFields.Add(uiType.Key, numericInputField);
 
                 ColorPickerManager.CreateColorPicker(InputFields[uiType.Key], ColorPickerType.Label);
                 ColorPickerManager.CreateColorPicker(InputFields[uiType.Key], ColorPickerType.Font);
@@ -113,45 +157,36 @@ namespace SimpleLabels.UI
             }
         }
 
-        private static TMP_InputField CreateInputField(GameObject parent, Vector2 anchorPosition, string namePrefix,
-            bool withNumericField = false)
+        private static TMP_InputField CreateInputField(GameObject parent, string namePrefix)
         {
             try
             {
-                //Create GameObject
                 namePrefix = namePrefix.Substring(namePrefix.LastIndexOf('/') + 1); // Remove the "UI/" prefix
+
+                //Create GameObject
                 GameObject inputFieldGameObject = new GameObject(namePrefix + "_InputField");
                 inputFieldGameObject.layer = 5; //UI Layer
                 inputFieldGameObject.transform.SetParent(parent.transform, false);
 
                 // Set up RectTransform
-                RectTransform parentRect = parent.GetComponent<RectTransform>();
                 RectTransform rectTransform = inputFieldGameObject.AddComponent<RectTransform>();
-                rectTransform.anchorMin = anchorPosition;
-                rectTransform.anchorMax = anchorPosition;
+                rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+                rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
                 rectTransform.pivot = new Vector2(0.5f, 0.5f);
-
-                // If we're adding a numeric field, make the main field narrower
-                float width = withNumericField ? 550 : 550;
-                rectTransform.sizeDelta = new Vector2(width, 50);
-
-                float height = parentRect.rect.height;
-                float xPos = withNumericField ? -60 : 0; // Shift to the left if we have a numeric field
-                rectTransform.anchoredPosition = new Vector2(xPos, -height / 2);
+                rectTransform.sizeDelta = new Vector2(550, 40);
+                rectTransform.anchoredPosition = new Vector2(-55, 10);
 
                 //Add visual Components
                 Image backGround = inputFieldGameObject.AddComponent<Image>();
+                backGround.type = Image.Type.Sliced;
+                backGround.sprite = SpriteManager.LoadEmbeddedSprite("UISmallSprite.png", new Vector4(5, 5, 5, 5));
                 backGround.color = ColorUtility.TryParseHtmlString(ModSettings.LabelDefaultColor.Value, out var color)
                     ? color
                     : Color.red;
 
-                Outline outline = inputFieldGameObject.AddComponent<Outline>();
-                outline.effectColor = new Color(0, 0, 0, 0.5f);
-                outline.effectDistance = new Vector2(2, 2);
-
                 //Create text area
                 GameObject textArea = createTextArea(inputFieldGameObject.transform);
-                GameObject placeholder = createPlaceholder(inputFieldGameObject.transform);
+                GameObject placeholder = createPlaceholder(textArea.transform);
 
                 //Configure the input field component
                 TMP_InputField inputField = inputFieldGameObject.AddComponent<TMP_InputField>();
@@ -175,8 +210,7 @@ namespace SimpleLabels.UI
             }
         }
 
-        private static TMP_InputField CreateNumericInputField(GameObject parent, Vector2 anchorPosition,
-            string namePrefix)
+        private static TMP_InputField CreateNumericInputField(GameObject parent, string namePrefix)
         {
             try
             {
@@ -189,20 +223,20 @@ namespace SimpleLabels.UI
                 // Set up RectTransform
                 RectTransform parentRect = parent.GetComponent<RectTransform>();
                 RectTransform rectTransform = inputFieldGameObject.AddComponent<RectTransform>();
-                rectTransform.anchorMin = anchorPosition;
-                rectTransform.anchorMax = anchorPosition;
+                rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+                rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
                 rectTransform.pivot = new Vector2(0.5f, 0.5f);
-                rectTransform.sizeDelta = new Vector2(100, 50); // Smaller width for numeric input
-                float height = parentRect.rect.height;
-                rectTransform.anchoredPosition = new Vector2(275, -height / 2); // Position to the right of main field
+                rectTransform.sizeDelta = new Vector2(90, 40); // Smaller width for numeric input
+                rectTransform.anchoredPosition = new Vector2(280, 10);
 
                 //Add visual Components
                 Image backGround = inputFieldGameObject.AddComponent<Image>();
-                backGround.color = new Color(0.8f, 0.8f, 0.8f); // Different color for numeric field
-
+                backGround.type = Image.Type.Sliced;
+                backGround.sprite = SpriteManager.LoadEmbeddedSprite("UISmallSprite.png", new Vector4(5, 5, 5, 5));
+                backGround.color = Color.white;
                 Outline outline = inputFieldGameObject.AddComponent<Outline>();
-                outline.effectColor = new Color(0, 0, 0, 0.5f);
-                outline.effectDistance = new Vector2(2, 2);
+                outline.effectColor = new Color(0, 0, 0, 0.15f);
+                outline.effectDistance = new Vector2(1, 1);
 
                 //Create text area
                 GameObject textArea = createTextArea(inputFieldGameObject.transform);
@@ -244,15 +278,50 @@ namespace SimpleLabels.UI
 
         private static void OnInputTextChange(string text, TMP_InputField inputField)
         {
+            // Reset input field state
             inputField.DeactivateInputField();
             _currentInputField = null;
-            Logger.Msg($"Text on guid: {LabelTracker.GetCurrentlyManagedEntityGuid()} changed to: {text}");
-            LabelTracker.UpdateLabel(guid: LabelTracker.GetCurrentlyManagedEntityGuid(), newLabelText: text);
 
-            if (string.IsNullOrEmpty(text))
-                LabelApplier.RemoveLabels(LabelTracker.GetCurrentlyManagedEntityGuid());
-            else
-                LabelApplier.ApplyOrUpdateLabel(LabelTracker.GetCurrentlyManagedEntityGuid());
+            // Get the entity GUID once to avoid repeated calls
+            string entityGuid = LabelTracker.GetCurrentlyManagedEntityGuid();
+
+            Logger.Msg($"Text on guid: {entityGuid} changed to: {text}");
+
+            // Update label with new text
+            LabelTracker.UpdateLabel(guid: entityGuid, newLabelText: text);
+            LabelApplier.ApplyOrUpdateLabel(entityGuid);
+
+            // Process text in curly brackets for special formatting
+            string textInBrackets = GetFirstTextInCurlyBrackets(text);
+            if (string.IsNullOrEmpty(textInBrackets))
+                return;
+
+            if (Registry.ItemExists(textInBrackets))
+            {
+                ItemDefinition itemDefinition = Registry.GetItem(textInBrackets);
+                Sprite itemSprite = itemDefinition.Icon;
+                Color spriteColor = SpriteManager.GetAverageColor(itemDefinition.Icon);
+                string colorHex = "#" + ColorUtility.ToHtmlStringRGB(spriteColor);
+                
+                LabelTracker.UpdateLabel(guid: entityGuid, newLabelColor: colorHex);
+                
+                string cleanedText = RemoveCurlyBracketsContent(text);
+
+                if (String.IsNullOrEmpty(cleanedText))
+                {
+                    cleanedText = itemDefinition.Name;
+                }
+
+                // Update text in input field and label
+                inputField.text = cleanedText;
+                LabelTracker.UpdateLabel(guid: entityGuid, newLabelText: cleanedText);
+                LabelApplier.ApplyOrUpdateLabel(entityGuid);
+
+                // Apply color to the input field
+                inputField.GetComponent<Image>().color = spriteColor;
+            }
+
+            
         }
 
         private static void ValidateNumericRange(string text, TMP_InputField inputField)
@@ -304,16 +373,18 @@ namespace SimpleLabels.UI
             RectTransform rectTransform = textArea.AddComponent<RectTransform>();
             rectTransform.anchorMin = Vector2.zero;
             rectTransform.anchorMax = Vector2.one;
-            rectTransform.offsetMin = new Vector2(20, 10);
-            rectTransform.offsetMax = new Vector2(-20, -10);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.offsetMin = new Vector2(10, 0);
+            rectTransform.offsetMax = new Vector2(-10, 0);
 
             TextMeshProUGUI textMeshPro = textArea.AddComponent<TextMeshProUGUI>();
-            textMeshPro.fontSize = ModSettings.FontDefaultSize.Value;
+            textMeshPro.fontSize = ModSettings.DEFAULT_FONT_SIZE;
             textMeshPro.color = ColorUtility.TryParseHtmlString(ModSettings.FontDefaultColor.Value, out var color)
                 ? color
                 : Color.red;
             textMeshPro.alignment = TextAlignmentOptions.Left;
-            textMeshPro.enableWordWrapping = true;
+            textMeshPro.enableWordWrapping = false;
+            textMeshPro.fontStyle = FontStyles.Bold;
 
             return textArea;
         }
@@ -323,17 +394,19 @@ namespace SimpleLabels.UI
             GameObject placeholder = new GameObject("Placeholder");
             placeholder.transform.SetParent(parent, false);
             RectTransform rectTransform = placeholder.AddComponent<RectTransform>();
-            rectTransform.anchorMin = Vector2.zero;
-            rectTransform.anchorMax = Vector2.one;
-            rectTransform.offsetMin = new Vector2(20, 10);
-            rectTransform.offsetMax = new Vector2(-20, -10);
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.offsetMax = new Vector2(0, 0);
+            rectTransform.offsetMin = new Vector2(-265, 0);
+
 
             TextMeshProUGUI textMeshPro = placeholder.AddComponent<TextMeshProUGUI>();
-            textMeshPro.text = "Label";
-            textMeshPro.fontSize = ModSettings.FontDefaultSize.Value;
+            textMeshPro.text = "Press enter after editing...";
+            textMeshPro.fontSize = ModSettings.DEFAULT_FONT_SIZE;
             textMeshPro.color = new Color(0.5f, 0.5f, 0.5f);
             textMeshPro.alignment = TextAlignmentOptions.Left;
-            textMeshPro.enableWordWrapping = true;
+            textMeshPro.enableWordWrapping = false;
 
             return placeholder;
         }
@@ -343,19 +416,46 @@ namespace SimpleLabels.UI
             GameObject placeholder = new GameObject("NumericPlaceholder");
             placeholder.transform.SetParent(parent, false);
             RectTransform rectTransform = placeholder.AddComponent<RectTransform>();
-            rectTransform.anchorMin = Vector2.zero;
-            rectTransform.anchorMax = Vector2.one;
-            rectTransform.offsetMin = new Vector2(20, 10);
-            rectTransform.offsetMax = new Vector2(-20, -10);
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.offsetMax = new Vector2(75, 25);
+            rectTransform.offsetMin = new Vector2(-100, -25);
+
 
             TextMeshProUGUI textMeshPro = placeholder.AddComponent<TextMeshProUGUI>();
             textMeshPro.text = "Size";
-            textMeshPro.fontSize = ModSettings.FontDefaultSize.Value;
+            textMeshPro.fontSize = ModSettings.DEFAULT_FONT_SIZE;
             textMeshPro.color = new Color(0.5f, 0.5f, 0.5f);
             textMeshPro.alignment = TextAlignmentOptions.Center;
             textMeshPro.enableWordWrapping = true;
 
             return placeholder;
+        }
+
+        public static string GetFirstTextInCurlyBrackets(string text)
+        {
+            // The regex pattern \{([^}]*)\} looks for:
+            // \{       - a literal opening curly bracket
+            // ([^}]*) - a capturing group that matches any character except a closing curly bracket, zero or more times
+            // \}       - a literal closing curly bracket
+            // This pattern specifically avoids matching across nested curly brackets
+            Match match = Regex.Match(text, @"\{([^}]*)\}");
+
+            if (match.Success)
+            {
+                return match.Groups[1].Value;
+            }
+
+            return null;
+        }
+
+        private static string RemoveCurlyBracketsContent(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            return Regex.Replace(input, "{[^{}]*}", "").Trim();
         }
     }
 }

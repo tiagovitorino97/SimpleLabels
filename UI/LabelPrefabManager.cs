@@ -73,6 +73,9 @@ namespace SimpleLabels.UI
             textMesh.enableWordWrapping = true;
             textMesh.margin = new Vector4(0.02f, 0.02f, 0.02f, 0.02f);
             
+            // Set font to the existing game font
+            TrySetOpenSansFont(textMesh);
+            
             var textRect = textObject.GetComponent<RectTransform>();
             textRect.sizeDelta = new Vector2(1.8f, 0.5f);
             textRect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -81,7 +84,35 @@ namespace SimpleLabels.UI
 
             Logger.Msg("Label prefab initialized successfully");
         }
+        private static void TrySetOpenSansFont(TextMeshPro textMesh)
+        {
+            try
+            {
+                TMP_FontAsset[] fontAssets = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+                foreach (var fontAsset in fontAssets)
+                {
+                    if (fontAsset.name.Contains("OpenSans-Bold"))
+                    {
+                        textMesh.font = fontAsset;
+                        
+                        // Try to get the matching material
+                        if (fontAsset.material != null && fontAsset.material.name.Contains("OpenSans-Bold"))
+                        {
+                            textMesh.fontSharedMaterial = fontAsset.material;
+                        }
+                        
+                        Logger.Msg($"Successfully set font from found font asset: {fontAsset.name}");
+                        return;
+                    }
+                }
 
+                Logger.Warning("Could not find OpenSans-Bold font in scene");
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Error($"Error setting font: {ex.Message}");
+            }
+        }
 
         private static void PrewarmPool(int count)
         {

@@ -24,9 +24,10 @@ namespace SimpleLabels.Patches
 
             Logger.Msg($"CurrentStationGameObject = {_currentStationGameObjectCleanName}");
             Logger.Msg($"CurrentStationGuid = {_currentStationGuid}");
+            Logger.Msg($"CurrentStationType = {stationType}");
 
             LabelInputDataLoader.LoadLabelData(_currentStationGuid, _currentStationGameObject,
-                _currentStationGameObject);
+                _currentStationGameObject, stationType);
             ;
         }
 
@@ -36,7 +37,7 @@ namespace SimpleLabels.Patches
             [HarmonyPostfix]
             public static void Postfix(PackagingStation station, bool open)
             {
-                if (open) HandleStationOpen(station, "PackagingStation");
+                if (open) HandleStationOpen(station, "Packaging Station");
             }
         }
 
@@ -46,7 +47,7 @@ namespace SimpleLabels.Patches
             [HarmonyPostfix]
             public static void Postfix(DryingRack rack, bool open)
             {
-                if (open) HandleStationOpen(rack, "DryingRack");
+                if (open) HandleStationOpen(rack, "Drying Rack");
             }
         }
 
@@ -56,7 +57,7 @@ namespace SimpleLabels.Patches
             [HarmonyPostfix]
             public static void Postfix(BrickPress press, bool open)
             {
-                if (open) HandleStationOpen(press, "BrickPress");
+                if (open) HandleStationOpen(press, "Brick Press");
             }
         }
 
@@ -76,7 +77,7 @@ namespace SimpleLabels.Patches
             [HarmonyPostfix]
             public static void Postfix(LabOven oven, bool open, bool removeUI)
             {
-                if (open) HandleStationOpen(oven, "LabOven");
+                if (open) HandleStationOpen(oven, "Lab Oven");
             }
         }
 
@@ -86,7 +87,7 @@ namespace SimpleLabels.Patches
             [HarmonyPostfix]
             public static void Postfix(MixingStationCanvas __instance, MixingStation station)
             {
-                HandleStationOpen(station, "MixingStation");
+                HandleStationOpen(station, "Mixing Station");
             }
         }
 
@@ -96,7 +97,7 @@ namespace SimpleLabels.Patches
             [HarmonyPostfix]
             public static void Postfix(ChemistryStationCanvas __instance, ChemistryStation station)
             {
-                HandleStationOpen(station, "ChemistryStation");
+                HandleStationOpen(station, "Chemistry Station");
             }
         }
     }

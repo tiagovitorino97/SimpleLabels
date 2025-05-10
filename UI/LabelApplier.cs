@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Il2CppTMPro;
 using SimpleLabels.Data;
 using UnityEngine;
@@ -23,6 +24,12 @@ namespace SimpleLabels.UI
             // Get all configured placements for this entity type
             if (!LabelPlacementConfigs.LabelPlacementConfigsDictionary.TryGetValue(entityType, out var labelPlacements))
                 return;
+
+            if (String.IsNullOrEmpty(entityData.LabelText))
+            {
+                RemoveLabels(guid);
+                return;
+            }
 
             EnsureLabelCount(guid, labelPlacements.Count);
 

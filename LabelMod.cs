@@ -29,6 +29,7 @@ namespace SimpleLabels
                     break;
             }
         }
+        
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
@@ -51,7 +52,6 @@ namespace SimpleLabels
             InputFieldManager.Terminate();
             LabelPrefabManager.Terminate();
             LabelApplier.Terminate();
-            ColorPickerManager.Terminate();
         }
     }
 }

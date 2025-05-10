@@ -33,17 +33,20 @@ namespace SimpleLabels.Settings
         //Label Settings
         public static MelonPreferences_Entry<int> LabelDefaultSize { get; private set; }
         public static MelonPreferences_Entry<string> LabelDefaultColor { get; private set; }
+        
+        public static MelonPreferences_Entry<bool> AutomaticallySetLabelColorOptions { get; private set; }
 
         //Font Colorpicker Settings
         public static Dictionary<string, MelonPreferences_Entry<string>> FontColorOptionsDictionary { get; set; }
 
         //Font Settings
-        public static MelonPreferences_Entry<int> FontDefaultSize { get; private set; }
         public static MelonPreferences_Entry<string> FontDefaultColor { get; private set; }
 
 
         //Debug Settings
         public static MelonPreferences_Entry<bool> ShowDebug { get; private set; }
+        
+        public static readonly int DEFAULT_FONT_SIZE = 24;
 
 
         public static void Initialize()
@@ -82,6 +85,8 @@ namespace SimpleLabels.Settings
         {
             LabelColorPickerCategory =
                 MelonPreferences.CreateCategory("SimpleLabels_03_ColorPicker", "Label Color Picker");
+            AutomaticallySetLabelColorOptions = LabelColorPickerCategory.CreateEntry("Auto-detect Colors from Stored Items", false);
+            AutomaticallySetLabelColorOptions.OnEntryValueChanged.Subscribe(OnAutomaticallySetLabelColorOptionsChanged);
         }
 
         private static void CreateFontColorPickerSettings()
@@ -97,13 +102,12 @@ namespace SimpleLabels.Settings
             LabelDefaultSize.OnEntryValueChanged.Subscribe(OnLabelDefaultSizeChanged);
             LabelDefaultColor = LabelCategory.CreateEntry("Default color", "#FFFFFF"); //White
             LabelDefaultColor.OnEntryValueChanged.Subscribe(OnLabelDefaultColorChanged);
+            
         }
 
         private static void CreateFontSettings()
         {
             FontCategory = MelonPreferences.CreateCategory("SimpleLabels_06_Font", "Font");
-            FontDefaultSize = FontCategory.CreateEntry("Default size", 24, is_hidden: true);
-            FontDefaultSize.OnEntryValueChanged.Subscribe(OnFontDefaultSizeChanged);
             FontDefaultColor = FontCategory.CreateEntry("Default color", "#000000"); //Black
             FontDefaultColor.OnEntryValueChanged.Subscribe(OnFontDefaultColorChanged);
         }
@@ -150,12 +154,12 @@ namespace SimpleLabels.Settings
         {
             CheckCorrectFormatAndUpdate(newValue, LabelDefaultColor);
         }
-
-        private static void OnFontDefaultSizeChanged(int oldValue, int newValue)
+        
+        private static void OnAutomaticallySetLabelColorOptionsChanged(bool oldValue, bool newValue)
         {
-            FontDefaultSize.Value = oldValue;
+            AutomaticallySetLabelColorOptions.Value = newValue;
         }
-
+        
         private static void OnFontDefaultColorChanged(string oldValue, string newValue)
         {
             CheckCorrectFormatAndUpdate(newValue, FontDefaultColor);
