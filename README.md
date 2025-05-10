@@ -1,25 +1,26 @@
 # SimpleLabels
 
-**SimpleLabels** is a C# mod for the game Schedule I using Melon Loader.
+SimpleLabels is a C# mod for the game Schedule I, built using MelonLoader. It allows players to create and manage custom labels for storages and stations, improving in-game organization without breaking immersion.
 
 ## Features
 
-- **Custom Label Creation**: Generate personalized labels for various storage needs.
-- **Clipboard Support**: See your custom names right in the clipboard.
-- **User-Friendly Interface**: Simple and intuitive design for ease of use.
-- **Efficient Organization**: Streamline your storage system with clear labeling.
+- Custom labels for storage and stations
+- Labels also appear on the clipboard interface
+- Clean, intuitive UI with native game styling
+- Optional color customization, including auto-coloring based on item contents
 
-##  Requirements
+## Requirements
 
-[MelonLoader](https://melonwiki.xyz/)
+- [MelonLoader](https://melonwiki.xyz/)
 
-##  Installation
+## Installation
 
-1. Install **MelonLoader**.
-3. Drop `ShelfLabels.dll` into your game's `Mods/` folder.
+1. Install MelonLoader.
+2. Download this mod.
+3. Place ShelfLabels.dll into your game's Mods/ folder.
 4. Launch the game.
 
-## Support
+## Feedback & Support
 
-Found a bug? Want to suggest a feature?  
-Comment on the [NexusMods page](https://www.nexusmods.com/schedule1/mods/590) or send me a DM there.
+Found a bug or have a suggestion?  
+Please report it on the [NexusMods page](https://www.nexusmods.com/schedule1/mods/590) or send me a message there.
