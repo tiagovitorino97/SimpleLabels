@@ -4,54 +4,79 @@ using MelonLoader;
 using SimpleLabels.Data;
 using SimpleLabels.Settings;
 using SimpleLabels.UI;
+using UnityEngine;
 using UnityEngine.Events;
 
-namespace SimpleLabels
+namespace SimpleLabels;
+
+public class LabelMod : MelonMod
 {
-    public class LabelMod : MelonMod
+    
+    
+    
+    public override void OnInitializeMelon()
     {
-        public override void OnInitializeMelon()
-        {
-            base.OnInitializeMelon();
-            ModSettings.Initialize();
-        }
-
-        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
-        {
-            switch (sceneName)
-            {
-                case "Main":
-                    ActivateMod();
-                    break;
-                case "Menu":
-                    DeactivateMod();
-                    break;
-            }
-        }
+        base.OnInitializeMelon();
+        ModSettings.Initialize();
         
+    }
 
-        public override void OnSceneWasInitialized(int buildIndex, string sceneName)
+    public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+    {
+        switch (sceneName)
         {
-            LabelPrefabManager.Initialize();
+            case "Main":
+                LabelPrefabManager.Initialize();
+                ActivateMod();
+                break;
+            case "Menu":
+                DeactivateMod();
+                break;
+        }
+    }
+/*
+    private const float MESSAGE_CHECK_INTERVAL = 0.2f;
+    private float _messageCheckTimer;
+
+
+    public override void OnUpdate()
+    {
+
+        if (Input.GetKeyDown(KeyCode.B))
+        {
+            LabelSyncManager.SendTestMessage("THIS IS JUST A TEST!");
         }
 
-        private static void ActivateMod()
+        _messageCheckTimer += Time.deltaTime;
+        if (_messageCheckTimer >= MESSAGE_CHECK_INTERVAL)
         {
-            LabelDataManager.Initialize();
-            InputFieldManager.Initialize();
-            SaveManager.Instance.onSaveStart.AddListener((UnityAction)(() => LabelDataManager.SaveLabelTrackerData()));
-            ;
-
-            //Try kook into Mod Manager & Phone App
-            if (RegisteredMelons.Any(mod => mod.Info.Name == "Mod Manager & Phone App"))
-                ModManagerIntegration.Initialize();
+            _messageCheckTimer = 0;
+            LabelSyncManager.CheckForMessages();
         }
+    }
+*/
 
-        private static void DeactivateMod()
-        {
-            InputFieldManager.Terminate();
-            LabelPrefabManager.Terminate();
-            LabelApplier.Terminate();
-        }
+    public override void OnSceneWasInitialized(int buildIndex, string sceneName)
+    {
+        
+    }
+
+    private static void ActivateMod()
+    {
+        LabelDataManager.Initialize();
+        InputFieldManager.Initialize();
+        SaveManager.Instance.onSaveStart.AddListener((UnityAction)(() => LabelDataManager.SaveLabelTrackerData()));
+        ;
+
+        //Try kook into Mod Manager & Phone App
+        if (RegisteredMelons.Any(mod => mod.Info.Name == "Mod Manager & Phone App"))
+            ModManagerIntegration.Initialize();
+    }
+
+    private static void DeactivateMod()
+    {
+        InputFieldManager.Terminate();
+        LabelPrefabManager.Terminate();
+        LabelApplier.Terminate();
     }
 }

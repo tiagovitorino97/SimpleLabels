@@ -100,13 +100,11 @@ namespace SimpleLabels.UI
             {
                 inputField.GetComponent<Image>().color = selectedColor;
                 LabelTracker.UpdateLabel(LabelTracker.GetCurrentlyManagedEntityGuid(), newLabelColor: colorHex);
-                LabelApplier.ApplyOrUpdateLabel(LabelTracker.GetCurrentlyManagedEntityGuid());
             }
             else
             {
                 inputField.GetComponentInChildren<TextMeshProUGUI>().color = selectedColor;
                 LabelTracker.UpdateLabel(LabelTracker.GetCurrentlyManagedEntityGuid(), newFontColor: colorHex);
-                LabelApplier.ApplyOrUpdateLabel(LabelTracker.GetCurrentlyManagedEntityGuid());
             }
         }
 

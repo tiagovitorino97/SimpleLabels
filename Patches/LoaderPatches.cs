@@ -80,7 +80,7 @@ namespace SimpleLabels.Patches
         }
 
 
-        private static string CleanEntityName(string originalName)
+        public static string CleanEntityName(string originalName)
         {
             return originalName
                 .Replace("(Clone)", "")

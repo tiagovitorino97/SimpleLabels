@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Newtonsoft.Json;
+using SimpleLabels.UI;
 using UnityEngine;
 using Logger = SimpleLabels.Utils.Logger;
 
@@ -22,10 +23,14 @@ namespace SimpleLabels.Data
             }
 
             if (!EntityDataDictionary.ContainsKey(guid))
+            {
                 EntityDataDictionary.Add(guid,
                     new EntityData(guid, gameObject, labelText, labelColor, labelSize, fontSize, fontColor));
+            }
             else
-                Logger.Warning($"Attempted to track entity with duplicate GUID: {guid}");
+            {
+                Logger.Warning($"Attempted to track entity with duplicate GUID {guid}");
+            }
         }
 
         public static void UpdateLabel(string guid, string newLabelText = null, string newLabelColor = null,
@@ -49,6 +54,9 @@ namespace SimpleLabels.Data
             {
                 Logger.Warning($"Attempted to update entity with non-existent GUID: {guid}");
             }
+            
+            
+            LabelApplier.ApplyOrUpdateLabel(guid);
         }
 
 
@@ -79,10 +87,7 @@ namespace SimpleLabels.Data
                 return null;
             }
 
-            if (EntityDataDictionary.TryGetValue(guid, out var entityData)) return entityData;
-
-            Logger.Msg($"Attempted to get storage with non-existent GUID: {guid}");
-            return null;
+            return EntityDataDictionary.TryGetValue(guid, out var entityData) ? entityData : null;
         }
 
         public static void SetCurrentlyManagedEntity(string guid)

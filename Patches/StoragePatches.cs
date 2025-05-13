@@ -6,6 +6,7 @@ using Il2CppScheduleOne.ItemFramework;
 using Il2CppScheduleOne.ObjectScripts;
 using Il2CppScheduleOne.Storage;
 using Il2CppScheduleOne.UI;
+using SimpleLabels.Data;
 using SimpleLabels.Settings;
 using SimpleLabels.UI;
 using SimpleLabels.Utils;
@@ -23,17 +24,13 @@ namespace SimpleLabels.Patches
         private static GameObject _currentInputGameObject;
 
 
-        private static readonly List<string> _allowedStorageNames = new List<string>
-        {
-            "Small Storage Rack", "Safe", "Display Cabinet",
-            "Medium Storage Rack", "Wall-Mounted Shelf",
-            "Large Storage Rack", "Coffee Table", "Table"
-        };
-
         [HarmonyPatch(typeof(StorageMenu), nameof(StorageMenu.Open), typeof(StorageEntity))]
         [HarmonyPostfix]
         public static void OnStorageOpened(StorageMenu __instance, StorageEntity entity)
         {
+            var openedStorageEntityName = LoaderPatches.CleanEntityName(__instance.OpenedStorageEntity.name);
+            if(!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(openedStorageEntityName)) return;
+            
             _currentInputGameObject = __instance.gameObject;
             _currentStorageGameObject = entity.gameObject;
             _currentStorageGuid = GetStorageGuid(entity);
@@ -115,18 +112,37 @@ namespace SimpleLabels.Patches
 
             private static void Postfix(StorageMenu __instance)
             {
-                var storageName = __instance.TitleLabel?.text;
-                if (string.IsNullOrEmpty(storageName)) return;
-                if (_allowedStorageNames.Contains(storageName)) return;
+                try
+                {
+                    if (__instance.OpenedStorageEntity == null)
+                    {
+                        DisableInputField(__instance);
+                        return;
+                    }
+                }
+                catch (Exception e)
+                {
+                    return;
+                }
+                
+                var openedStorageEntityName = LoaderPatches.CleanEntityName(__instance.OpenedStorageEntity.name);
+                if(!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(openedStorageEntityName)) DisableInputField(__instance);
 
-                _currentInputGameObject = __instance.gameObject;
-                var inputGameObjectName = _currentInputGameObject.name.Replace("(Clone)", "").Replace("_Built", "")
-                    .Replace("Mk2", "").Replace("_", "").Trim();
-                InputFieldManager.DeactivateInputField(inputGameObjectName);
-                InputFieldManager.DisableToggleOnOffButton(inputGameObjectName);
+                
             }
         }
+        
+        private static void DisableInputField(StorageMenu instance)
+        {
+            _currentInputGameObject = instance.gameObject;
+            var inputGameObjectName = _currentInputGameObject.name.Replace("(Clone)", "").Replace("_Built", "")
+                .Replace("Mk2", "").Replace("_", "").Trim();
+            InputFieldManager.DeactivateInputField(inputGameObjectName);
+            InputFieldManager.DisableToggleOnOffButton(inputGameObjectName);
+        }
     }
+    
+    
 
     public class ColorComparer : IEqualityComparer<Color32>
     {

@@ -15,7 +15,6 @@ namespace SimpleLabels.Utils
 
         public static void Warning(string message)
         {
-            if (ShowInConsole)
                 MelonLogger.Warning(message);
         }
 

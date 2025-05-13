@@ -74,7 +74,7 @@ namespace SimpleLabels.UI
             textMesh.margin = new Vector4(0.02f, 0.02f, 0.02f, 0.02f);
             
             // Set font to the existing game font
-            TrySetOpenSansFont(textMesh);
+            //TrySetOpenSansFont(textMesh);
             
             var textRect = textObject.GetComponent<RectTransform>();
             textRect.sizeDelta = new Vector2(1.8f, 0.5f);

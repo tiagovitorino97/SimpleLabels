@@ -28,13 +28,13 @@ namespace SimpleLabels.UI
 
         public static Dictionary<string, Vector2> SupportedUITypes = new Dictionary<string, Vector2>()
         {
-            { "UI/StorageMenu", new Vector2(0.5f, 0.7f) },
-            { "UI/Stations/PackagingStation", new Vector2(0.5f, 0.65f) },
-            { "UI/Stations/ChemistryStation", new Vector2(0.5f, 0.8f) },
-            { "UI/Stations/LabOven", new Vector2(0.5f, 0.70f) },
-            { "UI/Stations/BrickPress", new Vector2(0.5f, 0.65f) },
-            { "UI/Stations/Cauldron", new Vector2(0.5f, 0.7f) },
-            { "UI/Stations/MixingStation", new Vector2(0.5f, 0.70f) },
+            { "UI/StorageMenu", new Vector2(0.5f, 0.75f) },
+            { "UI/Stations/PackagingStation", new Vector2(0.5f, 0.75f) },
+            { "UI/Stations/ChemistryStation", new Vector2(0.5f, 0.75f) },
+            { "UI/Stations/LabOven", new Vector2(0.5f, 0.75f) },
+            { "UI/Stations/BrickPress", new Vector2(0.5f, 0.75f) },
+            { "UI/Stations/Cauldron", new Vector2(0.5f, 0.75f) },
+            { "UI/Stations/MixingStation", new Vector2(0.5f, 0.75f) },
             { "UI/Stations/DryingRack", new Vector2(0.5f, 0.75f) }
         };
 
@@ -204,10 +204,9 @@ namespace SimpleLabels.UI
                 inputField.textComponent = textArea.GetComponent<TextMeshProUGUI>();
                 inputField.placeholder = placeholder.GetComponent<TextMeshProUGUI>();
                 inputField.characterLimit = 30;
-
-                inputField.onSubmit.AddListener((UnityAction<string>)((string text) =>
+                inputField.onValueChanged.AddListener((UnityAction<string>)((string text) =>
                 {
-                    OnInputTextChange(text, inputField);
+                    if(DevUtils.IsStorageOrStationOpen()) OnInputTextChange(text, inputField);
                 }));
 
                 inputFieldGameObject.SetActive(true);
@@ -289,17 +288,18 @@ namespace SimpleLabels.UI
         private static void OnInputTextChange(string text, TMP_InputField inputField)
         {
             // Reset input field state
-            inputField.DeactivateInputField();
-            _currentInputField = null;
+            if (!DevUtils.IsStorageOrStationOpen())
+            {
+                inputField.DeactivateInputField();
+                _currentInputField = null;  
+            }
+            
 
             // Get the entity GUID once to avoid repeated calls
             string entityGuid = LabelTracker.GetCurrentlyManagedEntityGuid();
 
-            Logger.Msg($"Text on guid: {entityGuid} changed to: {text}");
-
             // Update label with new text
             LabelTracker.UpdateLabel(guid: entityGuid, newLabelText: text);
-            LabelApplier.ApplyOrUpdateLabel(entityGuid);
 
             // Process text in curly brackets for special formatting
             string textInBrackets = GetFirstTextInCurlyBrackets(text);
@@ -325,7 +325,6 @@ namespace SimpleLabels.UI
                 // Update text in input field and label
                 inputField.text = cleanedText;
                 LabelTracker.UpdateLabel(guid: entityGuid, newLabelText: cleanedText);
-                LabelApplier.ApplyOrUpdateLabel(entityGuid);
 
                 // Apply color to the input field
                 inputField.GetComponent<Image>().color = spriteColor;
@@ -372,8 +371,6 @@ namespace SimpleLabels.UI
 
             Logger.Msg($"Numeric value on guid: {LabelTracker.GetCurrentlyManagedEntityGuid()} changed to: {value}");
             LabelTracker.UpdateLabel(guid: LabelTracker.GetCurrentlyManagedEntityGuid(), newLabelSize: value);
-            if (string.IsNullOrEmpty(LabelTracker.GetCurrentlyManagedEntityLabelText())) return;
-            LabelApplier.ApplyOrUpdateLabel(LabelTracker.GetCurrentlyManagedEntityGuid());
         }
 
         private static GameObject createTextArea(Transform parent)
