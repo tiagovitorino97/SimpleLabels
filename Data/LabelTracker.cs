@@ -71,7 +71,7 @@ namespace SimpleLabels.Data
             if (EntityDataDictionary.TryGetValue(guid, out var value))
                 value.GameObject = gameObject;
             else
-                Logger.Warning($"Attempted to update entity with non-existent GUID: {guid}");
+                Logger.Msg($"Attempted to update entity with non-existent GUID: {guid}");
         }
 
         public static Dictionary<string, EntityData> GetAllEntityData()

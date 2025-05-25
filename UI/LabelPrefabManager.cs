@@ -15,12 +15,16 @@ namespace SimpleLabels.UI
         // Prefab components
         private static Material _labelMaterial;
         private static GameObject _prefabTemplate;
+        
+        // Configuration
+        private const int MinimumPoolSize = 8; // Always keep at least this many prefabs ready
+        private const int BatchSize = 10; // Create this many prefabs when replenishing
 
         public static void Initialize()
         {
             CreatePoolContainer();
             CreatePrefabTemplate();
-            PrewarmPool(10);
+            PrewarmPool(MinimumPoolSize * 2); // Start with double the minimum as a buffer
         }
 
         private static void CreatePoolContainer()
@@ -84,6 +88,7 @@ namespace SimpleLabels.UI
 
             Logger.Msg("Label prefab initialized successfully");
         }
+
         private static void TrySetOpenSansFont(TextMeshPro textMesh)
         {
             try
@@ -116,13 +121,12 @@ namespace SimpleLabels.UI
 
         private static void PrewarmPool(int count)
         {
-            // Calculate initial pool size based on typical usage
-            var storageRackCount = count / 4; // Assume 1/4 of count will be storage racks
-            var totalNeeded = storageRackCount * 4 + (count - storageRackCount); // 4 labels per rack + 1 for others
+            for (var i = 0; i < count; i++) 
+            {
+                ReturnToPool(CreateNewLabelInstance());
+            }
 
-            for (var i = 0; i < totalNeeded; i++) ReturnToPool(CreateNewLabelInstance());
-
-            Logger.Msg($"Prewarmed pool with {totalNeeded} label instances");
+            Logger.Msg($"Prewarmed pool with {count} label instances");
         }
 
         private static GameObject CreateNewLabelInstance()
@@ -134,26 +138,46 @@ namespace SimpleLabels.UI
 
         public static GameObject GetLabelInstance()
         {
+            // Check if we need to create more instances to maintain minimum buffer
+            if (_prefabPool.Count <= MinimumPoolSize)
+            {
+                ReplenishPool();
+            }
+
+            // Now we should definitely have items in the pool
             if (_prefabPool.Count > 0)
             {
                 var instance = _prefabPool.Dequeue();
                 if (instance == null)
-                    // If instance was destroyed, create new one
+                {
+                    // If instance was somehow destroyed, create a new one
                     instance = CreateNewLabelInstance();
+                }
                 instance.SetActive(true);
                 return instance;
             }
 
-            // If pool is empty, expand it
-            var newInstance = CreateNewLabelInstance();
-            // Create some extra instances to reduce future pool depletion
-            for (var i = 0; i < 25; i++) // Create 25 extra instances
+            // This should never happen, but as a fallback
+            Logger.Warning("Pool empty despite replenishment attempt, creating emergency instance");
+            return CreateNewLabelInstance();
+        }
+
+        private static void ReplenishPool()
+        {
+            int toCreate = BatchSize;
+            Logger.Msg($"Replenishing pool with {toCreate} new instances");
+            
+            for (int i = 0; i < toCreate; i++)
+            {
                 ReturnToPool(CreateNewLabelInstance());
-            return newInstance;
+            }
         }
 
         public static void ReturnToPool(GameObject labelInstance)
         {
+            if (labelInstance == null)
+                return;
+                
             labelInstance.SetActive(false);
             labelInstance.transform.SetParent(_poolContainer);
             _prefabPool.Enqueue(labelInstance);
@@ -168,7 +192,7 @@ namespace SimpleLabels.UI
                 Object.Destroy(obj);
             }
 
-            //Cleanup template
+            // Cleanup template
             if (_prefabTemplate != null) Object.Destroy(_prefabTemplate);
             if (_poolContainer != null) Object.Destroy(_poolContainer.gameObject);
             if (_labelMaterial != null) Object.Destroy(_labelMaterial);

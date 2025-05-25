@@ -26,7 +26,6 @@ public class LabelMod : MelonMod
         switch (sceneName)
         {
             case "Main":
-                LabelPrefabManager.Initialize();
                 ActivateMod();
                 break;
             case "Menu":
@@ -63,6 +62,7 @@ public class LabelMod : MelonMod
 
     private static void ActivateMod()
     {
+        LabelPrefabManager.Initialize();
         LabelDataManager.Initialize();
         InputFieldManager.Initialize();
         SaveManager.Instance.onSaveStart.AddListener((UnityAction)(() => LabelDataManager.SaveLabelTrackerData()));

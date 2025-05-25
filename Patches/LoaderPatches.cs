@@ -1,7 +1,9 @@
 ﻿using System;
 using HarmonyLib;
 using Il2CppScheduleOne.EntityFramework;
-using Il2CppScheduleOne.Persistence.Loaders;
+using Il2CppScheduleOne.Building;
+using Il2CppScheduleOne.ItemFramework;
+using Il2CppScheduleOne.Tiles;
 using SimpleLabels.Data;
 using SimpleLabels.Settings;
 using SimpleLabels.UI;
@@ -13,30 +15,36 @@ namespace SimpleLabels.Patches
     [HarmonyPatch]
     public class LoaderPatches
     {
-        // Patch for ground items (storage racks, etc.)
-        [HarmonyPatch(typeof(GridItemLoader), nameof(GridItemLoader.LoadAndCreate))]
+        // Patch for grid items (storage racks, etc.)
+        [HarmonyPatch(typeof(BuildManager), nameof(BuildManager.CreateGridItem))]
         [HarmonyPostfix]
-        private static void OnGridItemLoaded(GridItem __result)
+        private static void OnGridItemCreated(GridItem __result, ItemInstance item, Grid grid, Vector2 originCoordinate, int rotation, string guid)
         {
             if (__result == null) return;
 
+            // Use the provided guid parameter, or fall back to the result's GUID
+            var entityGuid = !string.IsNullOrEmpty(guid) ? guid : __result.GUID.ToString();
+
             TryCreateLabelsForEntity(
                 __result.gameObject,
-                __result.GUID.ToString(),
+                entityGuid,
                 __result.name
             );
         }
 
         // Patch for wall-mounted items
-        [HarmonyPatch(typeof(SurfaceItemLoader), nameof(SurfaceItemLoader.LoadAndCreate))]
+        [HarmonyPatch(typeof(BuildManager), nameof(BuildManager.CreateSurfaceItem))]
         [HarmonyPostfix]
-        private static void OnSurfaceItemLoaded(SurfaceItem __result)
+        private static void OnSurfaceItemCreated(SurfaceItem __result, ItemInstance item, Surface parentSurface, Vector3 relativePosition, Quaternion relativeRotation, string guid)
         {
             if (__result == null) return;
 
+            // Use the provided guid parameter, or fall back to the result's GUID
+            var entityGuid = !string.IsNullOrEmpty(guid) ? guid : __result.GUID.ToString();
+
             TryCreateLabelsForEntity(
                 __result.gameObject,
-                __result.GUID.ToString(),
+                entityGuid,
                 __result.name
             );
         }
@@ -64,7 +72,6 @@ namespace SimpleLabels.Patches
                 else
                     LabelTracker.UpdateGameObjectReference(guid, gameObject);
 
-
                 var entityData = LabelTracker.GetEntityData(guid);
 
                 if (!string.IsNullOrEmpty(entityData?.LabelText))
@@ -78,7 +85,6 @@ namespace SimpleLabels.Patches
                 Logger.Error($"Failed to process {originalName}: {e.Message}");
             }
         }
-
 
         public static string CleanEntityName(string originalName)
         {

@@ -5,11 +5,10 @@ namespace SimpleLabels.Utils
 {
     public static class Logger
     {
-        private static readonly bool ShowInConsole = ModSettings.ShowDebug.Value;
 
         public static void Msg(string message)
         {
-            if (ShowInConsole)
+            if (ModSettings.ShowDebug.Value)
                 MelonLogger.Msg(message);
         }
 

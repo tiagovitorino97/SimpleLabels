@@ -63,7 +63,8 @@ namespace SimpleLabels.Patches
                 Logger.Warning($"[Clipboard] Missing TextMeshPro component at {labelPath}");
                 return;
             }
-
+            
+            if (string.IsNullOrEmpty(guid)) return;
             var entityData = LabelTracker.GetEntityData(guid);
             if (entityData != null && !string.IsNullOrEmpty(entityData.LabelText)) label.text = entityData.LabelText;
         }
@@ -81,31 +82,31 @@ namespace SimpleLabels.Patches
                 return;
             }
 
-            foreach (var child in objectsUIContents.transform)
+            foreach (var entry in objectsUIContents.transform)
             {
-                var childTransform = child.TryCast<Transform>();
-                if (childTransform == null || !childTransform.name.Contains("Entry") ||
-                    !childTransform.gameObject.active)
+                var entryTransform = entry.TryCast<Transform>();
+                if (entryTransform == null || !entryTransform.name.Contains("Entry") ||
+                    !entryTransform.gameObject.active)
                     continue;
 
-                var objectLabelTransform = childTransform.Find("Title");
+                var objectLabelTransform = entryTransform.Find("Title");
                 if (objectLabelTransform == null)
                 {
-                    Logger.Warning($"[Clipboard] Missing title on {childTransform.name}");
+                    Logger.Warning($"[Clipboard] Missing title on {entryTransform.name}");
                     continue;
                 }
 
                 var textComponent = objectLabelTransform.GetComponentInChildren<TextMeshProUGUI>();
                 if (textComponent == null)
                 {
-                    Logger.Warning($"[Clipboard] Missing text component on {childTransform.name}");
+                    Logger.Warning($"[Clipboard] Missing text component on {entryTransform.name}");
                     continue;
                 }
 
-                var index = childTransform.GetSiblingIndex();
+                var index = entryTransform.GetSiblingIndex();
                 if (index >= newVal.Count)
                 {
-                    Logger.Warning($"[Clipboard] Index out of range: {index}");
+                    //Logger.Warning($"[Clipboard] Index out of range: {index}");
                     continue;
                 }
 
