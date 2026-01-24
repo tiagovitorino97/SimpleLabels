@@ -1,135 +1,79 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-    <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"
-            Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')"/>
-    <PropertyGroup>
-        <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-        <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-        <ProjectGuid>{0815B6B1-596A-4C00-B58C-9C171C427E90}</ProjectGuid>
-        <OutputType>Library</OutputType>
-        <AppDesignerFolder>Properties</AppDesignerFolder>
-        <RootNamespace>SimpleLabels</RootNamespace>
-        <AssemblyName>SimpleLabels</AssemblyName>
-        <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-        <FileAlignment>512</FileAlignment>
-        <LangVersion>latest</LangVersion>
-    </PropertyGroup>
-    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-        <PlatformTarget>AnyCPU</PlatformTarget>
-        <DebugSymbols>true</DebugSymbols>
-        <DebugType>full</DebugType>
-        <Optimize>false</Optimize>
-        <OutputPath>bin\Debug\</OutputPath>
-        <DefineConstants>DEBUG;TRACE</DefineConstants>
-        <ErrorReport>prompt</ErrorReport>
-        <WarningLevel>4</WarningLevel>
-    </PropertyGroup>
-    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-        <PlatformTarget>AnyCPU</PlatformTarget>
-        <DebugType>pdbonly</DebugType>
-        <Optimize>true</Optimize>
-        <OutputPath>bin\Release\</OutputPath>
-        <DefineConstants>TRACE</DefineConstants>
-        <ErrorReport>prompt</ErrorReport>
-        <WarningLevel>4</WarningLevel>
-    </PropertyGroup>
-    <ItemGroup>
-        <Reference Include="0Harmony">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\net6\0Harmony.dll</HintPath>
-        </Reference>
-        <Reference Include="Assembly-CSharp">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll</HintPath>
-        </Reference>
-        <Reference Include="Il2Cppcom.rlabrecque.steamworks.net">
-          <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2Cppcom.rlabrecque.steamworks.net.dll</HintPath>
-        </Reference>
-        <Reference Include="Il2CppFishNet.Runtime">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2CppFishNet.Runtime.dll</HintPath>
-        </Reference>
-        <Reference Include="Il2CppInterop.Runtime">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\net6\Il2CppInterop.Runtime.dll</HintPath>
-        </Reference>
-        <Reference Include="Il2Cppmscorlib">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll</HintPath>
-        </Reference>
-        <Reference Include="MelonLoader">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\net6\MelonLoader.dll</HintPath>
-        </Reference>
-        <Reference Include="Newtonsoft.Json">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\net6\Newtonsoft.Json.dll</HintPath>
-        </Reference>
-        <Reference Include="System"/>
-        <Reference Include="System.Core"/>
-        <Reference Include="System.Data"/>
-        <Reference Include="System.Xml"/>
-        <Reference Include="Unity.TextMeshPro">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Unity.TextMeshPro.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.CoreModule">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.ImageConversionModule">
-          <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.ImageConversionModule.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.InputLegacyModule">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModule.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.PhysicsModule">
-          <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.PhysicsModule.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.UI">
-            <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.UI.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.UIModule">
-          <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.UIModule.dll</HintPath>
-        </Reference>
-    </ItemGroup>
-    <ItemGroup>
-        <Compile Include="Data\LabelDataManager.cs"/>
-        <Compile Include="Data\LabelPlacementConfigs.cs"/>
-        <Compile Include="Data\LabelTracker.cs"/>
-        <Compile Include="LabelMod.cs"/>
-        <Compile Include="Patches\ClipboardPatches.cs"/>
-        <Compile Include="Patches\LoaderPatches.cs"/>
-        <Compile Include="Patches\StationPatches.cs"/>
-        <Compile Include="Patches\StoragePatches.cs"/>
-        <Compile Include="Properties\AssemblyInfo.cs"/>
-        <Compile Include="Settings\ColorPickerSettings.cs"/>
-        <Compile Include="Settings\ModManagerIntegration.cs"/>
-        <Compile Include="Settings\ModSettings.cs"/>
-        <Compile Include="UI\ColorPickerManager.cs"/>
-        <Compile Include="UI\GUIManager.cs" />
-        <Compile Include="UI\InputFieldManager.cs"/>
-        <Compile Include="UI\LabelApplier.cs"/>
-        <Compile Include="UI\LabelInputDataLoader.cs"/>
-        <Compile Include="UI\LabelPrefabManager.cs"/>
-        <Compile Include="Utils\DevUtils.cs" />
-        <Compile Include="Utils\Logger.cs"/>
-        <Compile Include="Utils\SpriteManager.cs" />
-    </ItemGroup>
-    <ItemGroup>
-      <EmbeddedResource Include="Resources\UIBigSprite.png" />
-      <EmbeddedResource Include="Resources\UISmallSprite.png" />
-    </ItemGroup>
-    <ItemGroup>
-      <EmbeddedResource Include="Resources\Off.png" />
-      <EmbeddedResource Include="Resources\On.png" />
-    </ItemGroup>
-    <ItemGroup>
-      <Folder Include="Networking\" />
-    </ItemGroup>
-    <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
-    <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-         Other similar extension points exist, see Microsoft.Common.targets.
-    <Target Name="BeforeBuild">
-    </Target>
-    -->
-    <Target Name="AfterBuild">
-        <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Schedule I\Mods&quot;"/>
-    </Target>
+<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+	<PlatformTarget>x64</PlatformTarget>
+	<AssemblyName>SimpleLabels</AssemblyName>
+	<RootNamespace>SimpleLabels</RootNamespace>
+    <Description>SimpleLabels Mod</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\net6\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2Cppcom.rlabrecque.steamworks.net">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2Cppcom.rlabrecque.steamworks.net.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2CppFishNet.Runtime">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2CppFishNet.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\net6\Il2CppInterop.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll</HintPath>
+    </Reference>
+    <Reference Include="MelonLoader">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\net6\MelonLoader.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\net6\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="SteamNetworkLib">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\UserLibs\SteamNetworkLib-IL2Cpp.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Unity.TextMeshPro.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.ImageConversionModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.PhysicsModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.UIModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\UIBigSprite.png" />
+    <EmbeddedResource Include="Resources\UISmallSprite.png" />
+    <EmbeddedResource Include="Resources\Off.png" />
+    <EmbeddedResource Include="Resources\On.png" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Schedule I\Mods&quot;&#xD;&#xA;powershell -ExecutionPolicy Bypass -File &quot;C:\Users\tiago\Desktop\CODING PROJECTS\CopyFileToHyperV.ps1&quot;" />
+  </Target>
 
 </Project>

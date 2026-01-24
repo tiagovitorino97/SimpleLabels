@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using MelonLoader;
@@ -48,7 +48,6 @@ namespace SimpleLabels.Utils
                 .FirstOrDefault();
             if (foundSprite != null)
             {
-                Logger.Msg($"Found sprite '{spriteName}' using Resources.FindObjectsOfTypeAll");
                 return foundSprite;
             }
             Logger.Warning($"Could not find sprite '{spriteName}'");
@@ -92,7 +91,7 @@ namespace SimpleLabels.Utils
             if (pixelCount == 0)
             {
                 Logger.Error("No non-transparent pixels found in sprite");
-                Object.Destroy(readableTexture);
+                UnityEngine.Object.Destroy(readableTexture);
                 return Color.white;
             }
     
@@ -107,7 +106,7 @@ namespace SimpleLabels.Utils
             Color adjustedColor = AdjustBrightness(averageColor, brightnessAdjustment);
     
             // Clean up
-            Object.Destroy(readableTexture);
+            UnityEngine.Object.Destroy(readableTexture);
     
             return adjustedColor;
         }
@@ -188,7 +187,6 @@ namespace SimpleLabels.Utils
                 byte[] bytes = readableTexture.EncodeToPNG();
                 System.IO.File.WriteAllBytes(filePath, bytes);
         
-                Logger.Msg($"Successfully exported sprite to {filePath}");
             }
             catch (System.Exception e)
             {

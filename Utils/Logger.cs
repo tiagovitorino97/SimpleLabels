@@ -1,4 +1,4 @@
-﻿using MelonLoader;
+using MelonLoader;
 using SimpleLabels.Settings;
 
 namespace SimpleLabels.Utils
@@ -8,7 +8,7 @@ namespace SimpleLabels.Utils
 
         public static void Msg(string message)
         {
-            if (ModSettings.ShowDebug.Value)
+            if (ModSettings.ShowDebug != null && ModSettings.ShowDebug.Value)
                 MelonLogger.Msg(message);
         }
 

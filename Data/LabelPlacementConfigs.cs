@@ -13,7 +13,7 @@ namespace SimpleLabels.Data
                     new List<LabelPlacement>
                     {
                         new LabelPlacement(
-                            new Vector3(0f, 0.75f, -0.254f),
+                            new Vector3(0f, 0.75f, -0.253f),
                             Vector3.zero,
                             new Vector2(1.8f, 0.5f)
                         ),
@@ -23,7 +23,7 @@ namespace SimpleLabels.Data
                             new Vector2(1.8f, 0.5f)
                         ),
                         new LabelPlacement(
-                            new Vector3(0f, 0.75f, 0.254f),
+                            new Vector3(0f, 0.75f, 0.253f),
                             new Vector3(0, 180, 0),
                             new Vector2(1.8f, 0.5f)
                         ),
@@ -39,22 +39,22 @@ namespace SimpleLabels.Data
                     new List<LabelPlacement>
                     {
                         new LabelPlacement(
-                            new Vector3(0f, 0.75f, -0.254f),
+                            new Vector3(0f, 0.75f, -0.253f),
                             Vector3.zero,
                             new Vector2(2.3f, 0.5f)
                         ),
                         new LabelPlacement(
-                            new Vector3(0.75f, 0.75f, 0f),
+                            new Vector3(0.752f, 0.75f, 0f),
                             new Vector3(0, -90, 0),
                             new Vector2(2.3f, 0.5f)
                         ),
                         new LabelPlacement(
-                            new Vector3(0f, 0.75f, 0.254f),
+                            new Vector3(0f, 0.75f, 0.253f),
                             new Vector3(0, 180, 0),
                             new Vector2(2.3f, 0.5f)
                         ),
                         new LabelPlacement(
-                            new Vector3(-0.75f, 0.75f, 0f),
+                            new Vector3(-0.752f, 0.75f, 0f),
                             new Vector3(0, 90, 0),
                             new Vector2(2.3f, 0.5f)
                         )
@@ -65,22 +65,22 @@ namespace SimpleLabels.Data
                     new List<LabelPlacement>
                     {
                         new LabelPlacement(
-                            new Vector3(0f, 0.75f, -0.254f),
+                            new Vector3(0f, 0.75f, -0.253f),
                             Vector3.zero,
                             new Vector2(2.8f, 0.5f)
                         ),
                         new LabelPlacement(
-                            new Vector3(1.006f, 0.75f, 0f),
+                            new Vector3(1.003f, 0.75f, 0f),
                             new Vector3(0, -90, 0),
                             new Vector2(2.8f, 0.5f)
                         ),
                         new LabelPlacement(
-                            new Vector3(0f, 0.75f, 0.254f),
+                            new Vector3(0f, 0.75f, 0.253f),
                             new Vector3(0, 180, 0),
                             new Vector2(2.8f, 0.5f)
                         ),
                         new LabelPlacement(
-                            new Vector3(-1.006f, 0.75f, 0f),
+                            new Vector3(-1.003f, 0.75f, 0f),
                             new Vector3(0, 90, 0),
                             new Vector2(2.8f, 0.5f)
                         )
@@ -321,6 +321,17 @@ namespace SimpleLabels.Data
                             new Vector3(-0.805f, .025f, 0f),
                             new Vector3(0, 90, 0),
                             new Vector2(2.8f, 0.5f)
+                        )
+                    }
+                },
+                {
+                    "MushroomSpawnStation",
+                    new List<LabelPlacement>
+                    {
+                        new LabelPlacement(
+                            new Vector3(0, 0.925f, 0.504f),
+                            new Vector3(0, 180, 0),
+                            new Vector2(1.2f, 0.4f)
                         )
                     }
                 }

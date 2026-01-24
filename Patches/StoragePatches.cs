@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -11,7 +11,6 @@ using SimpleLabels.Settings;
 using SimpleLabels.UI;
 using SimpleLabels.Utils;
 using UnityEngine;
-using Logger = SimpleLabels.Utils.Logger;
 
 
 namespace SimpleLabels.Patches
@@ -35,7 +34,6 @@ namespace SimpleLabels.Patches
             _currentStorageGameObject = entity.gameObject;
             _currentStorageGuid = GetStorageGuid(entity);
             string storageEntityName = entity.StorageEntityName;
-            Logger.Msg($"CurrentStorageGameObject = {_currentStorageGameObject.name}");
 
             var inputGameObjectName = _currentInputGameObject.name.Replace("(Clone)", "").Replace("_Built", "")
                 .Replace("Mk2", "").Replace("_", "").Trim();
@@ -83,15 +81,13 @@ namespace SimpleLabels.Patches
                 ColorPickerManager.SetLabelColorPickerButtonColor(i, colorsToApply[i]);
         }
 
-        private static string GetStorageGuid(StorageEntity entity)
+        public static string GetStorageGuid(StorageEntity entity)
         {
             if (entity.TryGetComponent<PlaceableStorageEntity>(out var placeable))
                 return placeable.GUID.ToString();
 
             if (entity.TryGetComponent<SurfaceStorageEntity>(out var surface))
                 return surface.GUID.ToString();
-
-            Logger.Warning($"No GUID found for storage entity: {entity.StorageEntityName}");
             return null;
         }
 
@@ -120,7 +116,7 @@ namespace SimpleLabels.Patches
                         return;
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     return;
                 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Il2CppTMPro;
 using SimpleLabels.Data;
 using SimpleLabels.Settings;
@@ -21,13 +21,26 @@ namespace SimpleLabels.UI
             try
             {
                 if (string.IsNullOrEmpty(entityGuid)) return;
+                
+                Logger.Msg($"[InputLoader] Loading label data for entity: GUID={entityGuid}, Name={entityName}");
+                
                 LabelTracker.SetCurrentlyManagedEntity(entityGuid);
                 var inputField = InputFieldManager.GetInputField(inputGameObjectName);
                 var numericInputField = InputFieldManager.GetNumericInputField(inputGameObjectName);
                 var entityNameIndicator = InputFieldManager.GetEntityNameIndicator(inputGameObjectName);
 
-                // Load existing label data
+                // Load existing label data (may have come from host via network sync)
                 var entityData = LabelTracker.GetEntityData(entityGuid);
+
+                // If we have entity data from the network but no GameObject yet, bind it now
+                // and apply the world label (otherwise it would never show for remotely-created labels).
+                if (entityData != null && entityData.GameObject == null && entityGameObject != null)
+                {
+                    LabelTracker.UpdateGameObjectReference(entityGuid, entityGameObject);
+                    if (!string.IsNullOrEmpty(entityData.LabelText))
+                        LabelApplier.ApplyOrUpdateLabel(entityGuid);
+                }
+
                 inputField.text = entityData?.LabelText ?? string.Empty;
                 entityNameIndicator.text = entityName;
                 inputField.GetComponent<Image>().color = ColorUtility.TryParseHtmlString(
@@ -49,17 +62,19 @@ namespace SimpleLabels.UI
                     InputFieldManager._currentNumericInputField = numericInputField;
                 }
 
-                //Track the entity if not already tracked
-                if (LabelTracker.GetEntityData(entityGuid) != null) return;
-                LabelTracker.TrackEntity(
-                    entityGuid,
-                    entityGameObject,
-                    entityData?.LabelText ?? string.Empty,
-                    entityData?.LabelColor ?? ModSettings.LabelDefaultColor.Value,
-                    entityData?.LabelSize ?? ModSettings.LabelDefaultSize.Value,
-                    entityData?.FontSize ?? ModSettings.DEFAULT_FONT_SIZE,
-                    entityData?.FontColor ?? ModSettings.FontDefaultColor.Value
-                );
+                if (LabelTracker.GetEntityData(entityGuid) == null)
+                {
+                    Logger.Msg($"[InputLoader] Tracking new entity from UI: GUID={entityGuid}");
+                    LabelTracker.TrackEntity(
+                        entityGuid,
+                        entityGameObject,
+                        entityData?.LabelText ?? string.Empty,
+                        entityData?.LabelColor ?? ModSettings.LabelDefaultColor.Value,
+                        entityData?.LabelSize ?? ModSettings.LabelDefaultSize.Value,
+                        entityData?.FontSize ?? ModSettings.DEFAULT_FONT_SIZE,
+                        entityData?.FontColor ?? ModSettings.FontDefaultColor.Value
+                    );
+                }
             }
             catch (Exception e)
             {

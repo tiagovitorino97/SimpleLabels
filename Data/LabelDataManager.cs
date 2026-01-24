@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,13 +17,10 @@ namespace SimpleLabels.Data
         {
             _dataDirectory = Path.Combine(MelonEnvironment.ModsDirectory, "SimpleLabels");
             _dataFilePath = Path.Combine(_dataDirectory, "Labels.json");
+            Logger.Msg($"[DataManager] Initializing. Data file: {_dataFilePath}");
             EnsureDataDirectoryExists();
-    
-            // Reset LabelTracker before loading data
             ResetLabelTracker();
-    
             LoadDataIntoLabelTracker();
-            Logger.Msg("Data directory initialized");
         }
         
         private static void EnsureDataDirectoryExists()
@@ -33,7 +30,6 @@ namespace SimpleLabels.Data
                 if (!Directory.Exists(_dataDirectory))
                 {
                     Directory.CreateDirectory(_dataDirectory);
-                    Logger.Msg($"Data directory: {_dataDirectory} created");
                 }
             }
             catch (Exception e)
@@ -48,21 +44,18 @@ namespace SimpleLabels.Data
             {
                 if (!File.Exists(_dataFilePath))
                 {
-                    Logger.Msg($"Data file: {_dataFilePath} not found.");
                     return;
                 }
                 
                 string json = File.ReadAllText(_dataFilePath);
                 
-                // Try to detect format based on JSON structure
                 if (json.Contains("\"Labels\":"))
                 {
-                    Logger.Msg("Detected old format labels file. Converting to new format...");
+                    Logger.Msg("[DataManager] Detected old format labels file. Converting to new format...");
                     MigrateFromOldFormat(json);
                 }
                 else
                 {
-                    // It's new format, proceed normally
                     var savedData = JsonConvert.DeserializeObject<Dictionary<string, LabelTracker.EntityData>>(json);
                     
                     if (savedData == null)
@@ -70,6 +63,8 @@ namespace SimpleLabels.Data
                         Logger.Warning("Label data file was empty or corrupted");
                         return;
                     }
+                    
+                    Logger.Msg($"[DataManager] Loading {savedData.Count} labels from file");
                     
                     foreach (var kvpEntityData in savedData)
                         LabelTracker.TrackEntity(
@@ -81,8 +76,6 @@ namespace SimpleLabels.Data
                             kvpEntityData.Value.FontSize,
                             kvpEntityData.Value.FontColor
                         );
-                    
-                    Logger.Msg($"Loaded {savedData.Count} entities from {_dataFilePath}");
                 }
             }
             catch (Exception e)
@@ -133,7 +126,6 @@ namespace SimpleLabels.Data
                     
                     // Save the migrated data in the new format
                     SaveLabelTrackerData();
-                    Logger.Msg($"Migration complete. Converted {migratedCount} labels to new format.");
                 }
             }
             catch (Exception e)
@@ -147,21 +139,13 @@ namespace SimpleLabels.Data
             try
             {
                 var allData = LabelTracker.GetAllEntityData();
-                
-                // Filter out items with empty LabelText
                 var dataToSave = allData.Where(kvp => !string.IsNullOrEmpty(kvp.Value.LabelText))
                                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
                 
+                Logger.Msg($"[DataManager] Saving {dataToSave.Count} labels to file");
+                
                 var json = JsonConvert.SerializeObject(dataToSave, Formatting.Indented);
                 File.WriteAllText(_dataFilePath, json);
-                
-                int removedCount = allData.Count - dataToSave.Count;
-                if (removedCount > 0)
-                {
-                    Logger.Msg($"Removed {removedCount} entities with empty labels");
-                }
-                
-                Logger.Msg($"Saved {dataToSave.Count} entities to {_dataFilePath}");
             }
             catch (Exception e)
             {
@@ -171,6 +155,7 @@ namespace SimpleLabels.Data
         
         private static void ResetLabelTracker()
         {
+
             // Access the Dictionary via reflection since it's private
             var entityDataDictionary = typeof(LabelTracker)
                 .GetField("EntityDataDictionary", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
@@ -179,7 +164,6 @@ namespace SimpleLabels.Data
             if (entityDataDictionary != null)
             {
                 entityDataDictionary.Clear();
-                Logger.Msg("LabelTracker reset successfully");
             }
             else
             {

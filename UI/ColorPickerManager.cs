@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Il2CppTMPro;
@@ -96,15 +96,19 @@ namespace SimpleLabels.UI
             var selectedColor = buttonImage.color;
             var colorHex = "#" + ColorUtility.ToHtmlStringRGB(selectedColor);
 
+            var guid = LabelTracker.GetCurrentlyManagedEntityGuid();
+            
             if (type == ColorPickerType.Label)
             {
                 inputField.GetComponent<Image>().color = selectedColor;
-                LabelTracker.UpdateLabel(LabelTracker.GetCurrentlyManagedEntityGuid(), newLabelColor: colorHex);
+                Logger.Msg($"[ColorPicker] User changed label color: GUID={guid}, Color={colorHex}");
+                LabelTracker.UpdateLabel(guid, newLabelColor: colorHex);
             }
             else
             {
                 inputField.GetComponentInChildren<TextMeshProUGUI>().color = selectedColor;
-                LabelTracker.UpdateLabel(LabelTracker.GetCurrentlyManagedEntityGuid(), newFontColor: colorHex);
+                Logger.Msg($"[ColorPicker] User changed font color: GUID={guid}, Color={colorHex}");
+                LabelTracker.UpdateLabel(guid, newFontColor: colorHex);
             }
         }
 

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Il2CppTMPro;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -78,7 +78,7 @@ namespace SimpleLabels.UI
             textMesh.margin = new Vector4(0.02f, 0.02f, 0.02f, 0.02f);
             
             // Set font to the existing game font
-            //TrySetOpenSansFont(textMesh);
+            TrySetOpenSansFont(textMesh);
             
             var textRect = textObject.GetComponent<RectTransform>();
             textRect.sizeDelta = new Vector2(1.8f, 0.5f);
@@ -86,32 +86,60 @@ namespace SimpleLabels.UI
             textRect.anchorMax = new Vector2(0.5f, 0.5f);
             textRect.pivot = new Vector2(0.5f, 0.5f);
 
-            Logger.Msg("Label prefab initialized successfully");
         }
 
         private static void TrySetOpenSansFont(TextMeshPro textMesh)
         {
             try
             {
+                // Try to find existing TMP materials in the game
+                Material[] allMaterials = Resources.FindObjectsOfTypeAll<Material>();
+                Material workingTextMaterial = null;
+
+                foreach (var mat in allMaterials)
+                {
+                    // Look for TMP materials that are likely used
+                    if (mat.shader != null &&
+                        (mat.shader.name.Contains("TextMeshPro") || mat.shader.name.Contains("TMP")) &&
+                        !mat.shader.name.Contains("Sprite"))
+                    {
+                        // You could test this material to see if it works
+                        workingTextMaterial = mat;
+                        break;
+                    }
+                }
+
                 TMP_FontAsset[] fontAssets = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
                 foreach (var fontAsset in fontAssets)
                 {
                     if (fontAsset.name.Contains("OpenSans-Bold"))
                     {
                         textMesh.font = fontAsset;
-                        
-                        // Try to get the matching material
-                        if (fontAsset.material != null && fontAsset.material.name.Contains("OpenSans-Bold"))
+
+                        if (workingTextMaterial != null)
                         {
-                            textMesh.fontSharedMaterial = fontAsset.material;
+                            // Clone the working material
+                            Material textMat = new Material(workingTextMaterial);
+
+                            if (textMat.HasProperty("_FaceColor"))
+                            {
+                                textMat.SetColor("_FaceColor", Color.black);
+                            }
+
+                            textMesh.fontSharedMaterial = textMat;
                         }
-                        
-                        Logger.Msg($"Successfully set font from found font asset: {fontAsset.name}");
+                        else
+                        {
+                            // Fallback to original approach
+                            Material textMat = new Material(fontAsset.material);
+                            Shader unlitShader = Shader.Find("TextMeshPro/Distance Field");
+                            if (unlitShader != null) textMat.shader = unlitShader;
+                            textMesh.fontSharedMaterial = textMat;
+                        }
+
                         return;
                     }
                 }
-
-                Logger.Warning("Could not find OpenSans-Bold font in scene");
             }
             catch (System.Exception ex)
             {
@@ -126,7 +154,6 @@ namespace SimpleLabels.UI
                 ReturnToPool(CreateNewLabelInstance());
             }
 
-            Logger.Msg($"Prewarmed pool with {count} label instances");
         }
 
         private static GameObject CreateNewLabelInstance()
@@ -165,7 +192,6 @@ namespace SimpleLabels.UI
         private static void ReplenishPool()
         {
             int toCreate = BatchSize;
-            Logger.Msg($"Replenishing pool with {toCreate} new instances");
             
             for (int i = 0; i < toCreate; i++)
             {

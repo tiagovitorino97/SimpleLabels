@@ -14,6 +14,7 @@ public class DevUtils
                DryingRackCanvas.Instance.isOpen ||
                LabOvenCanvas.Instance.isOpen ||
                MixingStationCanvas.Instance.isOpen ||
-               PackagingStationCanvas.Instance.isOpen;
+               PackagingStationCanvas.Instance.isOpen ||
+               MushroomSpawnStationInterface.Instance.IsOpen;
     }
 }

@@ -1,6 +1,7 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Il2CppScheduleOne.EntityFramework;
 using Il2CppScheduleOne.ObjectScripts;
+using Il2CppScheduleOne.StationFramework;
 using Il2CppScheduleOne.UI.Stations;
 using SimpleLabels.UI;
 using UnityEngine;
@@ -22,13 +23,8 @@ namespace SimpleLabels.Patches
             _currentStationGameObjectCleanName = _currentStationGameObject.name.Replace("(Clone)", "")
                 .Replace("_Built", "").Replace("Mk2", "").Replace("_", "").Trim();
 
-            Logger.Msg($"CurrentStationGameObject = {_currentStationGameObjectCleanName}");
-            Logger.Msg($"CurrentStationGuid = {_currentStationGuid}");
-            Logger.Msg($"CurrentStationType = {stationType}");
-
             LabelInputDataLoader.LoadLabelData(_currentStationGuid, _currentStationGameObject,
                 _currentStationGameObject, stationType);
-            ;
         }
 
         [HarmonyPatch(typeof(PackagingStationCanvas), nameof(PackagingStationCanvas.SetIsOpen))]
@@ -98,6 +94,16 @@ namespace SimpleLabels.Patches
             public static void Postfix(ChemistryStationCanvas __instance, ChemistryStation station)
             {
                 HandleStationOpen(station, "Chemistry Station");
+            }
+        }
+
+        [HarmonyPatch(typeof(MushroomSpawnStationInterface), nameof(MushroomSpawnStationInterface.Open))]
+        private static class MushroomSpawnStationPatch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(MushroomSpawnStationInterface __instance, MushroomSpawnStation station)
+            {
+                HandleStationOpen(station, "Mushroom Spawn Station");
             }
         }
     }

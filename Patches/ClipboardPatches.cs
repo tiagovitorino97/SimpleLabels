@@ -16,7 +16,7 @@ namespace SimpleLabels.Patches
     {
         [HarmonyPatch(typeof(RouteListFieldUI), nameof(RouteListFieldUI.Refresh))]
         [HarmonyPostfix]
-        public static void OnRouteListRefresh(RouteListFieldUI __instance, List<AdvancedTransitRoute> newVal)
+        public static void OnRouteListRefresh(RouteListFieldUI __instance, Il2CppSystem.Collections.Generic.List<AdvancedTransitRoute> newVal)
         {
             if (!ModSettings.ShowClipboardRoutes.Value) return;
 
@@ -71,7 +71,7 @@ namespace SimpleLabels.Patches
 
         [HarmonyPatch(typeof(ObjectListFieldUI), nameof(ObjectListFieldUI.Refresh))]
         [HarmonyPostfix]
-        public static void OnObjectListRefresh(ObjectListFieldUI __instance, List<BuildableItem> newVal)
+        public static void OnObjectListRefresh(ObjectListFieldUI __instance, Il2CppSystem.Collections.Generic.List<BuildableItem> newVal)
         {
             if (!ModSettings.ShowClipboardStations.Value) return;
 

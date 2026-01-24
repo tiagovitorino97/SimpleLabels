@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -35,7 +35,8 @@ namespace SimpleLabels.UI
             { "UI/Stations/BrickPress", new Vector2(0.5f, 0.75f) },
             { "UI/Stations/Cauldron", new Vector2(0.5f, 0.75f) },
             { "UI/Stations/MixingStation", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/DryingRack", new Vector2(0.5f, 0.75f) }
+            { "UI/Stations/DryingRack", new Vector2(0.5f, 0.75f) },
+            { "UI/Stations/MushroomSpawnStation", new Vector2(0.5f, 0.75f) }
         };
 
         public static TMP_InputField _currentInputField;
@@ -91,7 +92,6 @@ namespace SimpleLabels.UI
             ColorPickerManager.Terminate();
             _currentInputField = null;
             _currentNumericInputField = null;
-            Logger.Msg("InputFieldManager terminated.");
         }
 
         public static void ActivateInputField(string gameObjectName)
@@ -163,7 +163,6 @@ namespace SimpleLabels.UI
 
                 ColorPickerManager.CreateColorPicker(InputFields[uiType.Key], ColorPickerType.Label);
                 ColorPickerManager.CreateColorPicker(InputFields[uiType.Key], ColorPickerType.Font);
-                Logger.Msg($"Created input fields for {uiType.Key}");
             }
         }
 
@@ -204,9 +203,17 @@ namespace SimpleLabels.UI
                 inputField.textComponent = textArea.GetComponent<TextMeshProUGUI>();
                 inputField.placeholder = placeholder.GetComponent<TextMeshProUGUI>();
                 inputField.characterLimit = 30;
+                
+                // onValueChanged: Only for real-time visual feedback (curly bracket processing)
                 inputField.onValueChanged.AddListener((UnityAction<string>)((string text) =>
                 {
-                    if(DevUtils.IsStorageOrStationOpen()) OnInputTextChange(text, inputField);
+                    if(DevUtils.IsStorageOrStationOpen()) OnInputTextChangeVisualFeedback(text, inputField);
+                }));
+                
+                // onSubmit: Only update label when user presses Enter
+                inputField.onSubmit.AddListener((UnityAction<string>)((string text) =>
+                {
+                    if(DevUtils.IsStorageOrStationOpen()) OnInputTextSubmit(text, inputField);
                 }));
 
                 inputFieldGameObject.SetActive(true);
@@ -285,23 +292,18 @@ namespace SimpleLabels.UI
             }
         }
 
-        private static void OnInputTextChange(string text, TMP_InputField inputField)
+        // Called on every keystroke for real-time visual feedback (curly bracket processing)
+        private static void OnInputTextChangeVisualFeedback(string text, TMP_InputField inputField)
         {
             // Reset input field state
             if (!DevUtils.IsStorageOrStationOpen())
             {
                 inputField.DeactivateInputField();
                 _currentInputField = null;  
+                return;
             }
-            
 
-            // Get the entity GUID once to avoid repeated calls
-            string entityGuid = LabelTracker.GetCurrentlyManagedEntityGuid();
-
-            // Update label with new text
-            LabelTracker.UpdateLabel(guid: entityGuid, newLabelText: text);
-
-            // Process text in curly brackets for special formatting
+            // Process text in curly brackets for special formatting (visual feedback only)
             string textInBrackets = GetFirstTextInCurlyBrackets(text);
             if (string.IsNullOrEmpty(textInBrackets))
                 return;
@@ -309,11 +311,7 @@ namespace SimpleLabels.UI
             if (Registry.ItemExists(textInBrackets))
             {
                 ItemDefinition itemDefinition = Registry.GetItem(textInBrackets);
-                Sprite itemSprite = itemDefinition.Icon;
                 Color spriteColor = SpriteManager.GetAverageColor(itemDefinition.Icon);
-                string colorHex = "#" + ColorUtility.ToHtmlStringRGB(spriteColor);
-                
-                LabelTracker.UpdateLabel(guid: entityGuid, newLabelColor: colorHex);
                 
                 string cleanedText = RemoveCurlyBracketsContent(text);
 
@@ -322,15 +320,66 @@ namespace SimpleLabels.UI
                     cleanedText = itemDefinition.Name;
                 }
 
-                // Update text in input field and label
+                // Update text in input field (visual feedback only, no label update)
                 inputField.text = cleanedText;
-                LabelTracker.UpdateLabel(guid: entityGuid, newLabelText: cleanedText);
+
+                // Apply color to the input field (visual feedback only)
+                inputField.GetComponent<Image>().color = spriteColor;
+            }
+        }
+
+        // Called only when user presses Enter, this is where we update the label
+        private static void OnInputTextSubmit(string text, TMP_InputField inputField)
+        {
+            // Reset input field state
+            if (!DevUtils.IsStorageOrStationOpen())
+            {
+                inputField.DeactivateInputField();
+                _currentInputField = null;  
+                return;
+            }
+
+            // Get the entity GUID
+            string entityGuid = LabelTracker.GetCurrentlyManagedEntityGuid();
+            if (string.IsNullOrEmpty(entityGuid))
+                return;
+
+            // Process text in curly brackets for special formatting
+            string textInBrackets = GetFirstTextInCurlyBrackets(text);
+            string finalText = text;
+            string finalColor = null;
+
+            if (!string.IsNullOrEmpty(textInBrackets) && Registry.ItemExists(textInBrackets))
+            {
+                ItemDefinition itemDefinition = Registry.GetItem(textInBrackets);
+                Color spriteColor = SpriteManager.GetAverageColor(itemDefinition.Icon);
+                finalColor = "#" + ColorUtility.ToHtmlStringRGB(spriteColor);
+                
+                string cleanedText = RemoveCurlyBracketsContent(text);
+
+                if (String.IsNullOrEmpty(cleanedText))
+                {
+                    finalText = itemDefinition.Name;
+                }
+                else
+                {
+                    finalText = cleanedText;
+                }
+
+                // Update text in input field to show the cleaned version
+                inputField.text = finalText;
 
                 // Apply color to the input field
                 inputField.GetComponent<Image>().color = spriteColor;
             }
 
+            Logger.Msg($"[InputField] User submitted label change: GUID={entityGuid}, Text='{finalText}'");
             
+            LabelTracker.UpdateLabel(
+                guid: entityGuid, 
+                newLabelText: finalText,
+                newLabelColor: finalColor
+            );
         }
 
         private static void ValidateNumericRange(string text, TMP_InputField inputField)
@@ -369,8 +418,10 @@ namespace SimpleLabels.UI
             if (!int.TryParse(text, out value))
                 return;
 
-            Logger.Msg($"Numeric value on guid: {LabelTracker.GetCurrentlyManagedEntityGuid()} changed to: {value}");
-            LabelTracker.UpdateLabel(guid: LabelTracker.GetCurrentlyManagedEntityGuid(), newLabelSize: value);
+            var guid = LabelTracker.GetCurrentlyManagedEntityGuid();
+            Logger.Msg($"[InputField] User changed label size: GUID={guid}, Size={value}");
+            
+            LabelTracker.UpdateLabel(guid: guid, newLabelSize: value);
         }
 
         private static GameObject createTextArea(Transform parent)
