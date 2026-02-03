@@ -7,11 +7,28 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.UI
 {
+    /// <summary>
+    /// Applies physical label GameObjects to entities: parents, positions, scales, and sets text/colors from EntityData.
+    /// </summary>
+    /// <remarks>
+    /// Reads from LabelTracker and LabelPlacementConfigs. Uses LabelPrefabManager for pooled instances.
+    /// CleanEntityName strips (Clone), _Built, etc. to match config keys. Multiple placements per entity
+    /// (e.g. storage racks) get multiple instances; EnsureLabelCount keeps count in sync. Empty text
+    /// triggers RemoveLabels and returns instances to the pool.
+    /// </remarks>
     public class LabelApplier
     {
         private static readonly Dictionary<string, List<GameObject>> _entityLabels =
             new Dictionary<string, List<GameObject>>();
 
+        /// <summary>
+        /// Ensures the entity has the correct number of label instances, configures them from EntityData and placement config.
+        /// </summary>
+        /// <remarks>
+        /// No-op if GUID empty or entity/GameObject missing. Uses CleanEntityName to look up placements;
+        /// if none, logs and returns. Empty LabelText removes labels. Otherwise ensures count, then
+        /// ConfigureLabel for each (parent, position, rotation, scale, PaperBackground color, LabelText).
+        /// </remarks>
         public static void ApplyOrUpdateLabel(string guid)
         {
             if (string.IsNullOrEmpty(guid))
@@ -19,10 +36,7 @@ namespace SimpleLabels.UI
 
             var entityData = LabelTracker.GetEntityData(guid);
             if (entityData?.GameObject == null)
-            {
-                Logger.Msg($"[LabelApplier] Cannot apply label: GUID={guid}, GameObject is null");
                 return;
-            }
 
             var entityType = CleanEntityName(entityData.GameObject.name);
             if (!LabelPlacementConfigs.LabelPlacementConfigsDictionary.TryGetValue(entityType, out var labelPlacements))
@@ -37,8 +51,6 @@ namespace SimpleLabels.UI
                 return;
             }
 
-            Logger.Msg($"[LabelApplier] Applying label: GUID={guid}, Type={entityType}, Text='{entityData.LabelText}', Placements={labelPlacements.Count}");
-
             EnsureLabelCount(guid, labelPlacements.Count);
 
             for (var i = 0; i < labelPlacements.Count; i++)
@@ -47,11 +59,15 @@ namespace SimpleLabels.UI
             }
         }
 
-        private static void ConfigureLabel(GameObject labelInstance, LabelTracker.EntityData entityData,
+        private static void ConfigureLabel(GameObject labelInstance, EntityData entityData,
             LabelPlacement placement)
         {
             if (labelInstance == null)
                 labelInstance = LabelPrefabManager.GetLabelInstance();
+
+            // Ensure the label is active
+            if (!labelInstance.activeSelf)
+                labelInstance.SetActive(true);
 
             labelInstance.transform.SetParent(entityData.GameObject.transform, false);
             labelInstance.transform.localPosition = placement.LocalPosition;
@@ -103,6 +119,12 @@ namespace SimpleLabels.UI
                 .Trim();
         }
 
+        /// <summary>
+        /// Returns all label instances for the entity to the pool and removes the entity from the label map.
+        /// </summary>
+        /// <remarks>
+        /// Used when LabelText is cleared or entity is removed. No-op if the entity has no labels.
+        /// </remarks>
         public static void RemoveLabels(string guid)
         {
             if (!_entityLabels.TryGetValue(guid, out var labelInstances)) return;
@@ -128,6 +150,13 @@ namespace SimpleLabels.UI
             _entityLabels.Clear();
         }
 
+        /// <summary>
+        /// Re-applies all tracked labels. Use after scene load or network sync when GameObjects may have changed.
+        /// </summary>
+        /// <remarks>
+        /// Iterates LabelTracker.GetAllTrackedGuids() and calls ApplyOrUpdateLabel for each. Skips entities
+        /// with null GameObject (e.g. not yet loaded).
+        /// </remarks>
         public static void ForceUpdateAllLabels()
         {
             foreach (var guid in LabelTracker.GetAllTrackedGuids())

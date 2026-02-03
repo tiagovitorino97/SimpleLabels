@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Il2CppTMPro;
 using SimpleLabels.Data;
+using SimpleLabels.Services;
 using SimpleLabels.Settings;
 using SimpleLabels.Utils;
 using UnityEngine;
@@ -12,12 +13,24 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.UI
 {
+    /// <summary>
+    /// Which color the picker targets: label (paper) or font (text).
+    /// </summary>
     public enum ColorPickerType
     {
         Label,
         Font
     }
 
+    /// <summary>
+    /// Builds and manages color-picker UI (grid of preset buttons) for label and font colors.
+    /// </summary>
+    /// <remarks>
+    /// CreateColorPicker instantiates a picker per input field and type (Label/Font), using
+    /// ModSettings.LabelColorOptionsDictionary or FontColorOptionsDictionary. OnColorSelected
+    /// updates the input Image color, persists via LabelService.UpdateLabel, and syncs to network.
+    /// Terminate clears picker references when the mod shuts down.
+    /// </remarks>
     public static class ColorPickerManager
     {
         public static Dictionary<TMP_InputField, GameObject> LabelColorPickers =
@@ -102,13 +115,13 @@ namespace SimpleLabels.UI
             {
                 inputField.GetComponent<Image>().color = selectedColor;
                 Logger.Msg($"[ColorPicker] User changed label color: GUID={guid}, Color={colorHex}");
-                LabelTracker.UpdateLabel(guid, newLabelColor: colorHex);
+                LabelService.UpdateLabel(guid, newLabelColor: colorHex);
             }
             else
             {
                 inputField.GetComponentInChildren<TextMeshProUGUI>().color = selectedColor;
                 Logger.Msg($"[ColorPicker] User changed font color: GUID={guid}, Color={colorHex}");
-                LabelTracker.UpdateLabel(guid, newFontColor: colorHex);
+                LabelService.UpdateLabel(guid, newFontColor: colorHex);
             }
         }
 

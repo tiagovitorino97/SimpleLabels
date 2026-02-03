@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using MelonLoader;
 using SimpleLabels.UI;
@@ -8,6 +8,14 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Settings
 {
+    /// <summary>
+    /// Populates ModSettings Label/Font color picker dictionaries with default preset colors.
+    /// </summary>
+    /// <remarks>
+    /// Initialize creates LabelColorOptionsDictionary and FontColorOptionsDictionary, then
+    /// CreateDefaultColorOptions adds "Color 1".."Color 9" entries with fixed hex values.
+    /// OnColorChanged validates hex and updates ColorPickerManager buttons when settings change.
+    /// </remarks>
     public class ColorPickerSettings : MelonMod
     {
         public static string[] colorNames =

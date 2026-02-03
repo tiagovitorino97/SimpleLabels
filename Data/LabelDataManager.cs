@@ -4,15 +4,33 @@ using System.IO;
 using System.Linq;
 using MelonLoader.Utils;
 using Newtonsoft.Json;
+using SimpleLabels.Data;
+using SimpleLabels.Services;
 using SimpleLabels.Utils;
 
 namespace SimpleLabels.Data
 {
+    /// <summary>
+    /// Handles persistence of labels: reads/writes Labels.json under the mod directory.
+    /// </summary>
+    /// <remarks>
+    /// Initialize creates the data directory, clears LabelTracker, and loads Labels.json into
+    /// LabelTracker via LabelService. Supports migration from old <c>Labels</c> object format.
+    /// SaveLabelTrackerData serializes all tracked entities with non-empty text to disk.
+    /// </remarks>
     public class LabelDataManager
     {
         private static string _dataDirectory;
         private static string _dataFilePath;
         
+        /// <summary>
+        /// Sets up the data directory, resets LabelTracker, and loads Labels.json into state.
+        /// </summary>
+        /// <remarks>
+        /// Creates SimpleLabels folder under MelonEnvironment.ModsDirectory if missing. If Labels.json
+        /// uses the old format (contains "Labels"), migrates in-place and saves. Otherwise deserializes
+        /// into a dictionary and creates entities via LabelService; then syncs to network if host.
+        /// </remarks>
         public static void Initialize()
         {
             _dataDirectory = Path.Combine(MelonEnvironment.ModsDirectory, "SimpleLabels");
@@ -43,45 +61,59 @@ namespace SimpleLabels.Data
             try
             {
                 if (!File.Exists(_dataFilePath))
-                {
                     return;
-                }
                 
                 string json = File.ReadAllText(_dataFilePath);
                 
-                if (json.Contains("\"Labels\":"))
+                if (IsOldFormat(json))
                 {
                     Logger.Msg("[DataManager] Detected old format labels file. Converting to new format...");
                     MigrateFromOldFormat(json);
                 }
                 else
                 {
-                    var savedData = JsonConvert.DeserializeObject<Dictionary<string, LabelTracker.EntityData>>(json);
-                    
-                    if (savedData == null)
-                    {
-                        Logger.Warning("Label data file was empty or corrupted");
-                        return;
-                    }
-                    
-                    Logger.Msg($"[DataManager] Loading {savedData.Count} labels from file");
-                    
-                    foreach (var kvpEntityData in savedData)
-                        LabelTracker.TrackEntity(
-                            kvpEntityData.Value.Guid,
-                            null,
-                            kvpEntityData.Value.LabelText,
-                            kvpEntityData.Value.LabelColor,
-                            kvpEntityData.Value.LabelSize,
-                            kvpEntityData.Value.FontSize,
-                            kvpEntityData.Value.FontColor
-                        );
+                    LoadNewFormat(json);
                 }
             }
             catch (Exception e)
             {
                 Logger.Error($"Failed to load data from {_dataFilePath}: {e.Message}");
             }
+        }
+
+        private static bool IsOldFormat(string json)
+        {
+            return json.Contains("\"Labels\":");
+        }
+
+        private static void LoadNewFormat(string json)
+        {
+            var savedData = JsonConvert.DeserializeObject<Dictionary<string, EntityData>>(json);
+            
+            if (savedData == null)
+            {
+                Logger.Warning("Label data file was empty or corrupted");
+                return;
+            }
+            
+            Logger.Msg($"[DataManager] Loading {savedData.Count} labels from file");
+            
+            foreach (var entityData in savedData.Values)
+            {
+                // Use service to create labels from persistence (service handles state + visuals)
+                LabelService.CreateLabel(
+                    entityData.Guid,
+                    null,
+                    entityData.LabelText,
+                    entityData.LabelColor,
+                    entityData.LabelSize,
+                    entityData.FontSize,
+                    entityData.FontColor
+                );
+            }
+            
+            // Sync labels to network if host (so late-joining clients get the loaded labels)
+            LabelNetworkManager.SyncLabelsToNetwork();
         }
         
         private static void MigrateFromOldFormat(string jsonString)
@@ -111,7 +143,7 @@ namespace SimpleLabels.Data
                         }
                         
                         // Add entity with default values for new properties
-                        LabelTracker.TrackEntity(
+                        LabelService.CreateLabel(
                             guid,
                             null,
                             labelText,
@@ -134,13 +166,21 @@ namespace SimpleLabels.Data
             }
         }
         
+        /// <summary>
+        /// Serializes all tracked labels with non-empty text to Labels.json.
+        /// </summary>
+        /// <remarks>
+        /// Uses LabelTracker.GetAllEntityData(), filters out empty text, then JsonConvert with
+        /// indented formatting. Call after local label changes to persist across sessions.
+        /// </remarks>
         public static void SaveLabelTrackerData()
         {
             try
             {
                 var allData = LabelTracker.GetAllEntityData();
-                var dataToSave = allData.Where(kvp => !string.IsNullOrEmpty(kvp.Value.LabelText))
-                                       .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                var dataToSave = allData
+                    .Where(kvp => !string.IsNullOrEmpty(kvp.Value.LabelText))
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
                 
                 Logger.Msg($"[DataManager] Saving {dataToSave.Count} labels to file");
                 
@@ -155,23 +195,7 @@ namespace SimpleLabels.Data
         
         private static void ResetLabelTracker()
         {
-
-            // Access the Dictionary via reflection since it's private
-            var entityDataDictionary = typeof(LabelTracker)
-                .GetField("EntityDataDictionary", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
-                .GetValue(null) as Dictionary<string, LabelTracker.EntityData>;
-    
-            if (entityDataDictionary != null)
-            {
-                entityDataDictionary.Clear();
-            }
-            else
-            {
-                Logger.Error("Failed to reset LabelTracker");
-            }
-    
-            // Reset currently managed entity
-            LabelTracker.SetCurrentlyManagedEntity(null);
+            LabelTracker.Clear();
         }
     }
 }

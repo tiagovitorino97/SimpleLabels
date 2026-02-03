@@ -9,22 +9,21 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Patches
 {
+    /// <summary>
+    /// Harmony patches for station canvases (Packaging, DryingRack, BrickPress, Cauldron, LabOven, Mixing, etc.). Load label UI on open.
+    /// </summary>
+    /// <remarks>
+    /// Each nested class patches a canvas Open/SetIsOpen. When open, HandleStationOpen calls LabelInputDataLoader.LoadLabelData
+    /// with the station GUID, GameObject, and display name. Stations use the station GameObject as the input container.
+    /// </remarks>
     public class StationPatches
     {
-        private static string _currentStationGuid;
-        private static GameObject _currentStationGameObject;
-        private static string _currentStationGameObjectCleanName;
-
-
         private static void HandleStationOpen(GridItem station, string stationType)
         {
-            _currentStationGameObject = station.gameObject;
-            _currentStationGuid = station.GUID.ToString();
-            _currentStationGameObjectCleanName = _currentStationGameObject.name.Replace("(Clone)", "")
-                .Replace("_Built", "").Replace("Mk2", "").Replace("_", "").Trim();
+            var stationGuid = station.GUID.ToString();
+            var stationGameObject = station.gameObject;
 
-            LabelInputDataLoader.LoadLabelData(_currentStationGuid, _currentStationGameObject,
-                _currentStationGameObject, stationType);
+            LabelInputDataLoader.LoadLabelData(stationGuid, stationGameObject, stationGameObject, stationType);
         }
 
         [HarmonyPatch(typeof(PackagingStationCanvas), nameof(PackagingStationCanvas.SetIsOpen))]

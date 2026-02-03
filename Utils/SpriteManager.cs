@@ -6,8 +6,21 @@ using UnityEngine;
 
 namespace SimpleLabels.Utils
 {
+    /// <summary>
+    /// Loads sprites from embedded resources or game assets, and computes average color from sprites (e.g. for {itemId}).
+    /// </summary>
+    /// <remarks>
+    /// LoadEmbeddedSprite reads from assembly manifest (SimpleLabels.Resources.*). LoadGameSprite looks up
+    /// by name via Resources.FindObjectsOfTypeAll. GetAverageColor samples the sprite texture, skips transparent
+    /// pixels, optionally brightens; used for item-derived label colors.
+    /// </remarks>
     public class SpriteManager
     {
+        /// <summary>
+        /// Loads a sprite from the mod's embedded resources (e.g. UIBigSprite.png, UISmallSprite.png).
+        /// </summary>
+        /// <param name="resourceName">File name under Resources (e.g. UIBigSprite.png).</param>
+        /// <param name="customBorders">Border sizes for 9-slice (left, bottom, right, top).</param>
         public static Sprite LoadEmbeddedSprite(string resourceName, Vector4 customBorders)
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -40,6 +53,9 @@ namespace SimpleLabels.Utils
             }
         }
 
+        /// <summary>
+        /// Finds a sprite in the game by name via Resources.FindObjectsOfTypeAll. Logs warning if missing.
+        /// </summary>
         public static Sprite LoadGameSprite(string spriteName, Vector4 customBorders = default)
         {
             Sprite foundSprite = null;
@@ -54,6 +70,13 @@ namespace SimpleLabels.Utils
             return null;
         }
         
+        /// <summary>
+        /// Computes average RGB of non-transparent pixels in the sprite, with optional brightness scaling. Used for {itemId} colors.
+        /// </summary>
+        /// <remarks>
+        /// Creates a readable texture copy, samples the sprite rect, skips transparent pixels, applies
+        /// brightnessAdjustment, and returns the result. Default 1.5f brightens slightly.
+        /// </remarks>
         public static Color GetAverageColor(Sprite sprite, float brightnessAdjustment = 1.5f)
         {
             if (sprite == null || sprite.texture == null)

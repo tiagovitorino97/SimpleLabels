@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using MelonLoader;
 using SimpleLabels.UI;
@@ -6,6 +6,14 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Settings
 {
+    /// <summary>
+    /// MelonLoader preferences for SimpleLabels: general, clipboard, label/font colors, and debug.
+    /// </summary>
+    /// <remarks>
+    /// Initialize creates categories and entries, wires OnEntryValueChanged for ShowInput, AutoFocusInput,
+    /// clipboard toggles, etc. LabelColorOptionsDictionary and FontColorOptionsDictionary drive
+    /// ColorPickerManager presets. ColorPickerSettings.Initialize fills those from legacy or defaults.
+    /// </remarks>
     public class ModSettings
     {
         //Categories

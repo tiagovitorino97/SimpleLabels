@@ -1,4 +1,6 @@
+using System;
 using HarmonyLib;
+using UnityEngine;
 using Il2CppScheduleOne.Building;
 using Il2CppScheduleOne.EntityFramework;
 using Il2CppScheduleOne.ItemFramework;
@@ -6,17 +8,21 @@ using Il2CppScheduleOne.Persistence;
 using Il2CppScheduleOne.Persistence.Loaders;
 using Il2CppScheduleOne.Tiles;
 using SimpleLabels.Data;
+using SimpleLabels.Services;
 using SimpleLabels.Settings;
-using SimpleLabels.UI;
-using System;
-using UnityEngine;
-using UnityEngine.Events;
 using Logger = SimpleLabels.Utils.Logger;
-using LabetNetworkManager = SimpleLabels.Data.LabelNetworkManager;
 
 
 namespace SimpleLabels.Patches
 {
+    /// <summary>
+    /// Harmony patches for GridItem/SurfaceItem Awake and BuildManager create methods. Binds GameObjects to labels on spawn/load.
+    /// </summary>
+    /// <remarks>
+    /// OnGridItemAwake / OnSurfaceItemAwake run when items are instantiated (including from saves); OnGridItemCreated /
+    /// OnSurfaceItemCreated run when built. All call TryCreateLabelsForEntity: loads persisted data, creates entity
+    /// if missing, binds GameObject, applies label, saves. CleanEntityName is shared with other patches.
+    /// </remarks>
     [HarmonyPatch]
     public class LoaderPatches
     {
@@ -93,14 +99,23 @@ namespace SimpleLabels.Patches
         {
             __instance.onLoadComplete.AddListener(new Action(() =>
             {
-                LabetNetworkManager.LoadSyncedLabels();
+                // Client requests sync (no-op for host). Essential for mid-game join.
+                LabelNetworkManager.RequestLabelSyncFromHost();
+                // Clients load synced labels from network
+                LabelNetworkManager.LoadSyncedLabels();
+                // Host syncs current labels to network (for late-joining clients)
+                LabelNetworkManager.SyncLabelsToNetwork();
             }));
         }
 
 
+        private const string ZeroGuid = "00000000-0000-0000-0000-000000000000";
+
         private static void TryCreateLabelsForEntity(GameObject gameObject, string guid, string originalName) 
         {
             if (gameObject == null || string.IsNullOrEmpty(guid)) return;
+            // Skip zero GUIDs - entities not yet synced (e.g. client joining mid-game before full sync)
+            if (guid == ZeroGuid) return;
 
             try
             {
@@ -115,8 +130,8 @@ namespace SimpleLabels.Patches
                 var existing = LabelTracker.GetEntityData(guid);
                 if (existing == null)
                 {
-                    Logger.Msg($"[Loader] Tracking new entity: GUID={guid}, Type={cleanName}");
-                    LabelTracker.TrackEntity(
+                    Logger.Msg($"[Loader] Creating new entity: GUID={guid}, Type={cleanName}");
+                    LabelService.CreateLabel(
                         guid,
                         gameObject,
                         string.Empty,
@@ -129,15 +144,7 @@ namespace SimpleLabels.Patches
                 else
                 {
                     Logger.Msg($"[Loader] Binding GameObject to existing entity: GUID={guid}");
-                    LabelTracker.UpdateGameObjectReference(guid, gameObject);
-                }
-
-                var entityData = LabelTracker.GetEntityData(guid);
-
-                if (!string.IsNullOrEmpty(entityData?.LabelText))
-                {
-                    Logger.Msg($"[Loader] Applying existing label: GUID={guid}, Text='{entityData.LabelText}'");
-                    LabelApplier.ApplyOrUpdateLabel(guid);
+                    LabelService.BindGameObject(guid, gameObject);
                 }
             }
             catch (Exception e)

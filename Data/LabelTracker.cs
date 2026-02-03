@@ -1,24 +1,43 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
-using SimpleLabels.UI;
 using UnityEngine;
 using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Data
 {
+    /// <summary>
+    /// In-memory state store for label entities. Keys entities by GUID and holds text, colors, size, and GameObject refs.
+    /// </summary>
+    /// <remarks>
+    /// Pure state layer: no I/O, no UI, no network. LabelService uses this for state; LabelApplier reads it for visuals.
+    /// Use <see cref="StoreEntity"/> for new entities and <see cref="UpdateEntityData"/> for changes. GetEntityData
+    /// returns the live instance; GetAllEntityData returns a copy (e.g. for network serialization).
+    /// </remarks>
     public static class LabelTracker
     {
         private static string _currentlyManagedEntityGuid;
 
-        private static readonly Dictionary<string, EntityData> EntityDataDictionary =
-            new Dictionary<string, EntityData>();
+        private static readonly Dictionary<string, EntityData> EntityDataDictionary = new();
 
-        public static void TrackEntity(string guid, GameObject gameObject, string labelText, string labelColor,
+        internal static void Clear()
+        {
+            EntityDataDictionary.Clear();
+            _currentlyManagedEntityGuid = null;
+        }
+
+        /// <summary>
+        /// Stores a new entity in the state dictionary. Pure state operation - no side effects.
+        /// </summary>
+        /// <remarks>
+        /// Fails if GUID is empty or entity already exists (use <see cref="UpdateEntityData"/> for updates).
+        /// GameObject may be null when creating from network; bind later via <see cref="UpdateGameObjectReference"/>.
+        /// </remarks>
+        public static void StoreEntity(string guid, GameObject gameObject, string labelText, string labelColor,
             int labelSize, int fontSize, string fontColor)
         {
             if (string.IsNullOrEmpty(guid))
             {
-                Logger.Error("Attempted to track entity with empty GUID");
+                Logger.Error("[LabelTracker] Cannot store entity: GUID is empty");
                 return;
             }
 
@@ -26,84 +45,63 @@ namespace SimpleLabels.Data
             {
                 EntityDataDictionary.Add(guid,
                     new EntityData(guid, gameObject, labelText, labelColor, labelSize, fontSize, fontColor));
-                Logger.Msg($"[LabelTracker] Tracked new entity: GUID={guid}, Text='{labelText}'");
+                Logger.Msg($"[LabelTracker] Stored new entity: GUID={guid}, Text='{labelText}'");
             }
             else
             {
-                Logger.Warning($"Attempted to track entity with duplicate GUID {guid}");
+                Logger.Warning($"[LabelTracker] Entity {guid} already exists, use UpdateEntityData to modify");
             }
-        }
-
-        public static void UpdateLabel(string guid, string newLabelText = null, string newLabelColor = null,
-            int? newLabelSize = null, int? newFontSize = null, string newFontColor = null)
-        {
-            if (string.IsNullOrEmpty(guid))
-            {
-                Logger.Error("Attempted to update entity with empty GUID");
-                return;
-            }
-
-            if (EntityDataDictionary.TryGetValue(guid, out var value))
-            {
-                var oldText = value.LabelText;
-                value.LabelText = newLabelText ?? value.LabelText;
-                value.LabelColor = newLabelColor ?? value.LabelColor;
-                value.LabelSize = newLabelSize ?? value.LabelSize;
-                value.FontSize = newFontSize ?? value.FontSize;
-                value.FontColor = newFontColor ?? value.FontColor;
-                
-                Logger.Msg($"[LabelTracker] Updated label: GUID={guid}, Text='{oldText}' -> '{value.LabelText}'");
-            }
-            else
-            {
-                Logger.Warning($"Attempted to update entity with non-existent GUID: {guid}");
-            }
-
-            LabelApplier.ApplyOrUpdateLabel(guid);
-            LabelNetworkManager.NotifyLabelChanged(guid);
         }
 
         /// <summary>
-        /// Updates label data from network without triggering network sync (to avoid loops).
+        /// Updates entity data in the state dictionary. Pure state operation - no side effects.
         /// </summary>
-        public static void UpdateLabelFromNetwork(string guid, string newLabelText = null, string newLabelColor = null,
+        /// <remarks>
+        /// Only non-null parameters are applied; existing values are left unchanged for omitted params.
+        /// Entity must exist; use <see cref="StoreEntity"/> first. Does not touch GameObject reference.
+        /// </remarks>
+        public static void UpdateEntityData(string guid, string newLabelText = null, string newLabelColor = null,
             int? newLabelSize = null, int? newFontSize = null, string newFontColor = null)
         {
+            if (!TryGetEntity(guid, out var entityData))
+                return;
+
+            var oldText = entityData.LabelText;
+            
+            if (newLabelText != null) entityData.LabelText = newLabelText;
+            if (newLabelColor != null) entityData.LabelColor = newLabelColor;
+            if (newLabelSize.HasValue) entityData.LabelSize = newLabelSize.Value;
+            if (newFontSize.HasValue) entityData.FontSize = newFontSize.Value;
+            if (newFontColor != null) entityData.FontColor = newFontColor;
+            
+            Logger.Msg($"[LabelTracker] Updated entity data: GUID={guid}, Text='{oldText}' -> '{entityData.LabelText}'");
+        }
+
+        private static bool TryGetEntity(string guid, out EntityData entityData)
+        {
+            entityData = null;
+            
             if (string.IsNullOrEmpty(guid))
             {
-                Logger.Error("Attempted to update entity with empty GUID");
-                return;
+                Logger.Error("Attempted to access entity with empty GUID");
+                return false;
             }
 
-            if (EntityDataDictionary.TryGetValue(guid, out var value))
+            if (!EntityDataDictionary.TryGetValue(guid, out entityData))
             {
-                value.LabelText = newLabelText ?? value.LabelText;
-                value.LabelColor = newLabelColor ?? value.LabelColor;
-                value.LabelSize = newLabelSize ?? value.LabelSize;
-                value.FontSize = newFontSize ?? value.FontSize;
-                value.FontColor = newFontColor ?? value.FontColor;
-            }
-            else
-            {
-                Logger.Warning($"Attempted to update entity with non-existent GUID: {guid}");
-                return;
+                // This is expected when loading labels from other save games, so only log in debug mode
+                Logger.Msg($"Entity with GUID {guid} not found");
+                return false;
             }
 
-            // Apply/update the label visuals locally (no network sync)
-            LabelApplier.ApplyOrUpdateLabel(guid);
+            return true;
         }
 
 
         public static void UpdateGameObjectReference(string guid, GameObject gameObject)
         {
-            if (string.IsNullOrEmpty(guid))
-            {
-                Logger.Error("Attempted to update entity with empty GUID");
-                return;
-            }
-
-            if (EntityDataDictionary.TryGetValue(guid, out var value))
-                value.GameObject = gameObject;
+            if (TryGetEntity(guid, out var entityData))
+                entityData.GameObject = gameObject;
         }
 
         public static Dictionary<string, EntityData> GetAllEntityData()
@@ -130,13 +128,7 @@ namespace SimpleLabels.Data
 
         public static EntityData GetEntityData(string guid)
         {
-            if (string.IsNullOrEmpty(guid))
-            {
-                Logger.Error("Attempted to get storage with empty GUID");
-                return null;
-            }
-
-            return EntityDataDictionary.TryGetValue(guid, out var entityData) ? entityData : null;
+            return TryGetEntity(guid, out var entityData) ? entityData : null;
         }
 
         public static void SetCurrentlyManagedEntity(string guid)
@@ -164,71 +156,6 @@ namespace SimpleLabels.Data
             return new List<string>(EntityDataDictionary.Keys);
         }
 
-        public class EntityData
-        {
-            public EntityData()
-            {
-            }
 
-            public EntityData(string guid, GameObject gameObject, string labelText, string labelColor,
-                int labelSize, int fontSize, string fontColor)
-            {
-                Guid = guid;
-                GameObject = gameObject;
-                LabelText = labelText;
-                LabelSize = labelSize;
-                LabelColor = labelColor;
-                FontSize = fontSize;
-                FontColor = fontColor;
-            }
-
-            public EntityData(string guid, string labelText, string labelColor,
-                int labelSize, int fontSize, string fontColor)
-                : this(guid, null, labelText, labelColor, labelSize, fontSize, fontColor)
-            {
-            }
-
-            public string Guid { get; set; }
-
-            [JsonIgnore] public GameObject GameObject { get; set; }
-
-            public string LabelText { get; set; }
-            public int LabelSize { get; set; }
-            public string LabelColor { get; set; }
-            public int FontSize { get; set; }
-            public string FontColor { get; set; }
-        }
-
-        public static void UpdateLocalLabelsFromNetwork(Dictionary<string, EntityData> networkedData)
-        {
-            Logger.Msg($"[LabelTracker] Updating local labels from network: {networkedData.Count} entities");
-            
-            foreach (var kvp in networkedData)
-            {
-                var guid = kvp.Key;
-                var networkedEntityData = kvp.Value;
-                if (EntityDataDictionary.ContainsKey(guid))
-                {
-                    UpdateLabel(guid,
-                        newLabelText: networkedEntityData.LabelText,
-                        newLabelColor: networkedEntityData.LabelColor,
-                        newLabelSize: networkedEntityData.LabelSize,
-                        newFontSize: networkedEntityData.FontSize,
-                        newFontColor: networkedEntityData.FontColor);
-                }
-                else
-                {
-                    TrackEntity(guid,
-                        gameObject: null,
-                        labelText: networkedEntityData.LabelText,
-                        labelColor: networkedEntityData.LabelColor,
-                        labelSize: networkedEntityData.LabelSize,
-                        fontSize: networkedEntityData.FontSize,
-                        fontColor: networkedEntityData.FontColor);
-                }
-            }
-
-            LabelApplier.ForceUpdateAllLabels();
-        }
     }
 }

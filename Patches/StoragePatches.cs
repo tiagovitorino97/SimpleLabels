@@ -15,31 +15,34 @@ using UnityEngine;
 
 namespace SimpleLabels.Patches
 {
+    /// <summary>
+    /// Harmony patches for StorageMenu.Open. Loads label data into the input UI and updates color pickers when storage is opened.
+    /// </summary>
+    /// <remarks>
+    /// OnStorageOpened runs after Open(StorageEntity). Skips if entity type has no placement config. Loads label data
+    /// via LabelInputDataLoader, updates color pickers, and optionally sets picker colors from stored items
+    /// (AutomaticallySetLabelColorOptions). GetStorageGuid resolves GUID from StorageEntity for persistence.
+    /// </remarks>
     [HarmonyPatch(typeof(StorageMenu))]
     public class StoragePatches
     {
-        private static string _currentStorageGuid;
-        private static GameObject _currentStorageGameObject;
-        private static GameObject _currentInputGameObject;
-
-
         [HarmonyPatch(typeof(StorageMenu), nameof(StorageMenu.Open), typeof(StorageEntity))]
         [HarmonyPostfix]
         public static void OnStorageOpened(StorageMenu __instance, StorageEntity entity)
         {
             var openedStorageEntityName = LoaderPatches.CleanEntityName(__instance.OpenedStorageEntity.name);
-            if(!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(openedStorageEntityName)) return;
+            if (!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(openedStorageEntityName))
+                return;
             
-            _currentInputGameObject = __instance.gameObject;
-            _currentStorageGameObject = entity.gameObject;
-            _currentStorageGuid = GetStorageGuid(entity);
-            string storageEntityName = entity.StorageEntityName;
+            var inputGameObject = __instance.gameObject;
+            var storageGameObject = entity.gameObject;
+            var storageGuid = GetStorageGuid(entity);
+            var storageEntityName = entity.StorageEntityName;
 
-            var inputGameObjectName = _currentInputGameObject.name.Replace("(Clone)", "").Replace("_Built", "")
-                .Replace("Mk2", "").Replace("_", "").Trim();
+            var inputGameObjectName = CleanGameObjectName(inputGameObject.name);
             InputFieldManager.DeactivateInputField(inputGameObjectName);
 
-            LabelInputDataLoader.LoadLabelData(_currentStorageGuid, _currentStorageGameObject, _currentInputGameObject, storageEntityName);
+            LabelInputDataLoader.LoadLabelData(storageGuid, storageGameObject, inputGameObject, storageEntityName);
 
             ColorPickerManager.UpdateAllColorPickers(ColorPickerType.Label);
 
@@ -130,11 +133,18 @@ namespace SimpleLabels.Patches
         
         private static void DisableInputField(StorageMenu instance)
         {
-            _currentInputGameObject = instance.gameObject;
-            var inputGameObjectName = _currentInputGameObject.name.Replace("(Clone)", "").Replace("_Built", "")
-                .Replace("Mk2", "").Replace("_", "").Trim();
+            var inputGameObjectName = CleanGameObjectName(instance.gameObject.name);
             InputFieldManager.DeactivateInputField(inputGameObjectName);
             InputFieldManager.DisableToggleOnOffButton(inputGameObjectName);
+        }
+
+        private static string CleanGameObjectName(string name)
+        {
+            return name.Replace("(Clone)", "")
+                .Replace("_Built", "")
+                .Replace("Mk2", "")
+                .Replace("_", "")
+                .Trim();
         }
     }
     

@@ -6,6 +6,14 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.UI
 {
+    /// <summary>
+    /// Creates and pools physical label prefabs (PaperBackground + LabelText). LabelApplier pulls from the pool.
+    /// </summary>
+    /// <remarks>
+    /// Initialize builds a hidden pool container, a prefab template (cube + TextMeshPro), and prewarms the pool.
+    /// GetLabelInstance dequeues or creates; ReturnToPool deactivates and enqueues. Replenishes when count
+    /// drops below MinimumPoolSize. Prefab uses URP Simple Lit for paper and OpenSans-Bold for text when available.
+    /// </remarks>
     public class LabelPrefabManager
     {
         // Pooling system
@@ -20,6 +28,12 @@ namespace SimpleLabels.UI
         private const int MinimumPoolSize = 8; // Always keep at least this many prefabs ready
         private const int BatchSize = 10; // Create this many prefabs when replenishing
 
+        /// <summary>
+        /// Creates the pool container, prefab template, and prewarms the pool with a buffer of instances.
+        /// </summary>
+        /// <remarks>
+        /// Pool container is DontDestroyOnLoad and inactive. Prewarm size is MinimumPoolSize * 2.
+        /// </remarks>
         public static void Initialize()
         {
             CreatePoolContainer();
@@ -51,9 +65,8 @@ namespace SimpleLabels.UI
             paperBackground.transform.localPosition = Vector3.zero;
             paperBackground.transform.localScale = new Vector3(2f, 0.6f, 0.1f);
             
+            // Disable collider by setting extents to zero (keeps component for compatibility)
             paperBackground.GetComponent<BoxCollider>().extents = Vector3.zero;
-            
-            //Object.Destroy(paperBackground.GetComponent<UnityEngine.BoxCollider>());
 
             _labelMaterial = new Material(Shader.Find("Universal Render Pipeline/Simple Lit"));
             if (_labelMaterial != null)
@@ -163,6 +176,13 @@ namespace SimpleLabels.UI
             return instance;
         }
 
+        /// <summary>
+        /// Returns a pooled label instance, replenishing the pool if below minimum. Activates before return.
+        /// </summary>
+        /// <remarks>
+        /// Replenishes when count &lt;= MinimumPoolSize. If dequeued instance was destroyed, creates a new one.
+        /// Fallback: logs warning and creates emergency instance if pool is empty after replenishment.
+        /// </remarks>
         public static GameObject GetLabelInstance()
         {
             // Check if we need to create more instances to maintain minimum buffer
@@ -199,6 +219,12 @@ namespace SimpleLabels.UI
             }
         }
 
+        /// <summary>
+        /// Deactivates the instance, parents it to the pool container, and enqueues it for reuse.
+        /// </summary>
+        /// <remarks>
+        /// No-op if instance is null. LabelApplier calls this when removing labels or trimming count.
+        /// </remarks>
         public static void ReturnToPool(GameObject labelInstance)
         {
             if (labelInstance == null)

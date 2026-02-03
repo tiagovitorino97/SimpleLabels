@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Il2CppTMPro;
 using SimpleLabels.Settings;
 using SimpleLabels.Utils;
@@ -8,184 +8,166 @@ using UnityEngine.UI;
 
 namespace SimpleLabels.UI
 {
+    /// <summary>
+    /// Builds the label input GUI: container, entity name text, indicator labels, and structure for input fields.
+    /// </summary>
+    /// <remarks>
+    /// InitializeGUI creates a container at the given anchor, adds "Entity Name", "Name:", "Size:", "Label Color:",
+    /// "Font Color:" indicators, and returns the container. InputFieldManager attaches actual input fields to
+    /// this structure. Used by CreateInputFields when setting up per–station-type UI.
+    /// </remarks>
     public class GUIManager
     {
-        private static bool _isOn;
-        public static Image toggleButtonBackGround;
+        public static Image ToggleButtonBackground;
+        
+        /// <summary>
+        /// Creates the label GUI container and indicator texts for the given parent and name prefix.
+        /// </summary>
+        /// <remarks>
+        /// Extracts name prefix from path (after last '/'). Container uses UIBigSprite, 700x200. Registers
+        /// entity name text in InputFieldManager.EntityInicatorNames for the prefix.
+        /// </remarks>
         public static GameObject InitializeGUI(GameObject parent, Vector2 anchorPosition, string namePrefix)
         {
-            namePrefix = namePrefix.Substring(namePrefix.LastIndexOf('/') + 1);
-            //Create Container GameObject
-            var containerGameObject = new GameObject(namePrefix + "_Container");
-            containerGameObject.layer = 5; //UI Layer
-            containerGameObject.transform.SetParent(parent.transform, false);
+            namePrefix = ExtractNamePrefix(namePrefix);
+            var container = CreateContainer(parent, anchorPosition, namePrefix);
             
-            var containeRectTransform = containerGameObject.AddComponent<RectTransform>();
-            containeRectTransform.anchorMin = anchorPosition;
-            containeRectTransform.anchorMax = anchorPosition;
-            containeRectTransform.pivot = new Vector2(0.5f, 0.5f);
-            containeRectTransform.sizeDelta = new Vector2(700, 200);
-            
-            var containerBackGround = containerGameObject.AddComponent<Image>();
-            containerBackGround.type = Image.Type.Sliced;
-            containerBackGround.sprite = SpriteManager.LoadEmbeddedSprite("UIBigSprite.png", new Vector4(20, 20, 20, 20));
-            containerBackGround.color = new Color(0.39215687f, 0.39215687f, 0.39215687f, 0.39215687f);
-            
-            //Create EntityName TextMeshProUGUI
-            var entityNameTextGameObject = new GameObject("EntityNameText");
-            entityNameTextGameObject.layer = 5; //UI Layer
-            entityNameTextGameObject.transform.SetParent(containerGameObject.transform, false);
-            
-            var entityNameText = entityNameTextGameObject.AddComponent<TextMeshProUGUI>();
-            entityNameText.text = "Entity Name";
-            entityNameText.color = Color.white;
-            entityNameText.fontSize = 22;
-            entityNameText.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
-            entityNameText.alignment = TextAlignmentOptions.Center;
-            entityNameText.enableWordWrapping = false;
-            entityNameText.overflowMode = TextOverflowModes.Overflow;
-            entityNameText.margin = new Vector4(15, 10, 0,0);
-            
-            InputFieldManager.EntityInicatorNames.Add(namePrefix, entityNameText);
-            
-            var entityNameRectTransform = entityNameTextGameObject.GetComponent<RectTransform>();
-            entityNameRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            entityNameRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            entityNameRectTransform.pivot = new Vector2(0.5f, 0.5f);
-            entityNameRectTransform.anchoredPosition = new Vector2(0, 75);
-            entityNameRectTransform.sizeDelta = new Vector2(700, 50);
-            
-            //Create Indicator Name TextMeshProUGUI
-            var indicatorNameTextGameObject = new GameObject("IndicatorNameText");
-            indicatorNameTextGameObject.layer = 5; //UI Layer
-            indicatorNameTextGameObject.transform.SetParent(containerGameObject.transform, false);
-            
-            var indicatorNameText = indicatorNameTextGameObject.AddComponent<TextMeshProUGUI>();
-            indicatorNameText.text = "Name:";
-            indicatorNameText.color = Color.white;
-            indicatorNameText.fontSize = 16;
-            indicatorNameText.fontStyle = FontStyles.Bold | FontStyles.UpperCase ;
-            indicatorNameText.alignment = TextAlignmentOptions.Left;
-            indicatorNameText.enableWordWrapping = false;
-            indicatorNameText.overflowMode = TextOverflowModes.Overflow;
-            
-            var indicatorNameRectTransform = indicatorNameTextGameObject.GetComponent<RectTransform>();
-            indicatorNameRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            indicatorNameRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            indicatorNameRectTransform.pivot = new Vector2(0.5f, 0.5f);
-            indicatorNameRectTransform.anchoredPosition = new Vector2(-275, 45);
-            indicatorNameRectTransform.sizeDelta = new Vector2(100, 25);
-            
-            //Create Indicator Size TextMeshProUGUI
-            var indicatorSizeTextGameObject = new GameObject("IndicatorSizeText");
-            indicatorSizeTextGameObject.layer = 5; //UI Layer
-            indicatorSizeTextGameObject.transform.SetParent(containerGameObject.transform, false);
-            
-            var indicatorSizeText = indicatorSizeTextGameObject.AddComponent<TextMeshProUGUI>();
-            indicatorSizeText.text = "Size:";
-            indicatorSizeText.color = Color.white;
-            indicatorSizeText.fontSize = 16;
-            indicatorSizeText.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
-            indicatorSizeText.alignment = TextAlignmentOptions.Left;
-            indicatorSizeText.enableWordWrapping = false;
-            indicatorSizeText.overflowMode = TextOverflowModes.Overflow;
-            
-            var indicatorSizeRectTransform = indicatorSizeTextGameObject.GetComponent<RectTransform>();
-            indicatorSizeRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            indicatorSizeRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            indicatorSizeRectTransform.pivot = new Vector2(0.5f, 0.5f);
-            indicatorSizeRectTransform.anchoredPosition = new Vector2(288, 45);
-            indicatorSizeRectTransform.sizeDelta = new Vector2(100, 25);
-            
-            //Create Indicator Font Color TextMeshProUGUI
-            var indicatorFontColorTextGameObject = new GameObject("IndicatorFontColorText");
-            indicatorFontColorTextGameObject.layer = 5; //UI Layer
-            indicatorFontColorTextGameObject.transform.SetParent(containerGameObject.transform, false);
-            
-            var indicatorFontColorText = indicatorFontColorTextGameObject.AddComponent<TextMeshProUGUI>();
-            indicatorFontColorText.text = "Label Color:";
-            indicatorFontColorText.color = Color.white;
-            indicatorFontColorText.fontSize = 16;
-            indicatorFontColorText.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
-            indicatorFontColorText.alignment = TextAlignmentOptions.Left;
-            indicatorFontColorText.enableWordWrapping = false;
-            indicatorFontColorText.overflowMode = TextOverflowModes.Overflow;
-            
-            var indicatorFontColorRectTransform = indicatorFontColorTextGameObject.GetComponent<RectTransform>();
-            indicatorFontColorRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            indicatorFontColorRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            indicatorFontColorRectTransform.pivot = new Vector2(0.5f, 0.5f);
-            indicatorFontColorRectTransform.anchoredPosition = new Vector2(-275, -35);
-            indicatorFontColorRectTransform.sizeDelta = new Vector2(100, 25);
-            
-            //Create Indicator Label Color TextMeshProUGUI
-            var indicatorLabelColorTextGameObject = new GameObject("IndicatorLabelColorText");
-            indicatorLabelColorTextGameObject.layer = 5; //UI Layer
-            indicatorLabelColorTextGameObject.transform.SetParent(containerGameObject.transform, false);
-            
-            var indicatorLabelColorText = indicatorLabelColorTextGameObject.AddComponent<TextMeshProUGUI>();
-            indicatorLabelColorText.text = "Font Color:";
-            indicatorLabelColorText.color = Color.white;
-            indicatorLabelColorText.fontSize = 16;
-            indicatorLabelColorText.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
-            indicatorLabelColorText.alignment = TextAlignmentOptions.Left;
-            indicatorLabelColorText.enableWordWrapping = false;
-            indicatorLabelColorText.overflowMode = TextOverflowModes.Overflow;
-            
-            var indicatorLabelColorRectTransform = indicatorLabelColorTextGameObject.GetComponent<RectTransform>();
-            indicatorLabelColorRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            indicatorLabelColorRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            indicatorLabelColorRectTransform.pivot = new Vector2(0.5f, 0.5f);
-            indicatorLabelColorRectTransform.anchoredPosition = new Vector2(80, -35);
-            indicatorLabelColorRectTransform.sizeDelta = new Vector2(100, 25);
+            CreateEntityNameText(container, namePrefix);
+            CreateIndicatorText(container, "IndicatorNameText", "Name:", new Vector2(-275, 45));
+            CreateIndicatorText(container, "IndicatorSizeText", "Size:", new Vector2(288, 45));
+            CreateIndicatorText(container, "IndicatorFontColorText", "Label Color:", new Vector2(-275, -35));
+            CreateIndicatorText(container, "IndicatorLabelColorText", "Font Color:", new Vector2(80, -35));
 
-            return containerGameObject;
+            return container;
         }
 
-        public static Button createOnOffButton(GameObject parent, string namePrefix)
+        private static string ExtractNamePrefix(string namePrefix)
         {
-            namePrefix = namePrefix.Substring(namePrefix.LastIndexOf('/') + 1);
-            //Create Container GameObject
-            var toggleButtonGameObject = new GameObject(namePrefix + "_ToggleButton");
-            toggleButtonGameObject.layer = 5; //UI Layer
-            toggleButtonGameObject.transform.SetParent(parent.transform, false);
+            return namePrefix.Substring(namePrefix.LastIndexOf('/') + 1);
+        }
+
+        private static GameObject CreateContainer(GameObject parent, Vector2 anchorPosition, string namePrefix)
+        {
+            var container = new GameObject(namePrefix + "_Container");
+            container.layer = 5; // UI Layer
+            container.transform.SetParent(parent.transform, false);
             
-            var toggleButtonRectTransform = toggleButtonGameObject.AddComponent<RectTransform>();
-            toggleButtonRectTransform.anchorMin = new Vector2(0, 0);
-            toggleButtonRectTransform.anchorMax = new Vector2(0, 0);
-            toggleButtonRectTransform.pivot = new Vector2(0, 0);
-            toggleButtonRectTransform.anchoredPosition = new Vector2(10, 10);
-            toggleButtonRectTransform.sizeDelta = new Vector2(50, 46.2f);
+            var rectTransform = container.AddComponent<RectTransform>();
+            rectTransform.anchorMin = anchorPosition;
+            rectTransform.anchorMax = anchorPosition;
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.sizeDelta = new Vector2(700, 200);
             
+            var background = container.AddComponent<Image>();
+            background.type = Image.Type.Sliced;
+            background.sprite = SpriteManager.LoadEmbeddedSprite("UIBigSprite.png", new Vector4(20, 20, 20, 20));
+            background.color = new Color(0.39215687f, 0.39215687f, 0.39215687f, 0.39215687f);
             
-           toggleButtonBackGround = toggleButtonGameObject.AddComponent<Image>();
-           toggleButtonBackGround.color = new Color(1, 1, 1, 0.9f);
-            toggleButtonBackGround.sprite = SpriteManager.LoadEmbeddedSprite("On.png", Vector4.zero);
-            _isOn = true;
+            return container;
+        }
+
+        private static void CreateEntityNameText(GameObject container, string namePrefix)
+        {
+            var textObject = new GameObject("EntityNameText");
+            textObject.layer = 5; // UI Layer
+            textObject.transform.SetParent(container.transform, false);
             
-            var toggleButton = toggleButtonGameObject.AddComponent<Button>();
-            toggleButton.image = toggleButtonBackGround;
-            var keepNamePrefix = namePrefix;
-            toggleButton.onClick.AddListener((UnityAction)(() =>
+            var text = textObject.AddComponent<TextMeshProUGUI>();
+            text.text = "Entity Name";
+            text.color = Color.white;
+            text.fontSize = 22;
+            text.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
+            text.alignment = TextAlignmentOptions.Center;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.margin = new Vector4(15, 10, 0, 0);
+            
+            InputFieldManager.EntityInicatorNames.Add(namePrefix, text);
+            
+            var rectTransform = textObject.GetComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = new Vector2(0, 75);
+            rectTransform.sizeDelta = new Vector2(700, 50);
+        }
+
+        private static void CreateIndicatorText(GameObject container, string objectName, string text, Vector2 position)
+        {
+            var textObject = new GameObject(objectName);
+            textObject.layer = 5; // UI Layer
+            textObject.transform.SetParent(container.transform, false);
+            
+            var textComponent = textObject.AddComponent<TextMeshProUGUI>();
+            textComponent.text = text;
+            textComponent.color = Color.white;
+            textComponent.fontSize = 16;
+            textComponent.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
+            textComponent.alignment = TextAlignmentOptions.Left;
+            textComponent.enableWordWrapping = false;
+            textComponent.overflowMode = TextOverflowModes.Overflow;
+            
+            var rectTransform = textObject.GetComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = position;
+            rectTransform.sizeDelta = new Vector2(100, 25);
+        }
+
+        public static Button CreateOnOffButton(GameObject parent, string namePrefix)
+        {
+            namePrefix = ExtractNamePrefix(namePrefix);
+            var buttonObject = CreateToggleButtonObject(parent, namePrefix);
+            var button = SetupToggleButton(buttonObject, namePrefix);
+            
+            return button;
+        }
+
+        private static GameObject CreateToggleButtonObject(GameObject parent, string namePrefix)
+        {
+            var buttonObject = new GameObject(namePrefix + "_ToggleButton");
+            buttonObject.layer = 5; // UI Layer
+            buttonObject.transform.SetParent(parent.transform, false);
+            
+            var rectTransform = buttonObject.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0, 0);
+            rectTransform.anchorMax = new Vector2(0, 0);
+            rectTransform.pivot = new Vector2(0, 0);
+            rectTransform.anchoredPosition = new Vector2(10, 10);
+            rectTransform.sizeDelta = new Vector2(50, 46.2f);
+            
+            ToggleButtonBackground = buttonObject.AddComponent<Image>();
+            ToggleButtonBackground.color = new Color(1, 1, 1, 0.9f);
+            ToggleButtonBackground.sprite = SpriteManager.LoadEmbeddedSprite("On.png", Vector4.zero);
+            
+            return buttonObject;
+        }
+
+        private static Button SetupToggleButton(GameObject buttonObject, string namePrefix)
+        {
+            var button = buttonObject.AddComponent<Button>();
+            button.image = ToggleButtonBackground;
+            
+            var isOn = true;
+            button.onClick.AddListener((UnityAction)(() =>
             {
-                _isOn = !_isOn;
-                if (_isOn)
+                isOn = !isOn;
+                if (isOn)
                 {
-                    
-                    InputFieldManager.ActivateInputField(keepNamePrefix);
+                    InputFieldManager.ActivateInputField(namePrefix);
                     ModSettings.ShowInput.Value = true;
+                    ToggleButtonBackground.sprite = SpriteManager.LoadEmbeddedSprite("On.png", Vector4.zero);
                 }
                 else
                 {
-                    InputFieldManager.DeactivateInputField(keepNamePrefix);
+                    InputFieldManager.DeactivateInputField(namePrefix);
                     ModSettings.ShowInput.Value = false;
+                    ToggleButtonBackground.sprite = SpriteManager.LoadEmbeddedSprite("Off.png", Vector4.zero);
                 }
-                
             }));
             
-            return toggleButton;
-
-
+            return button;
         }
     }
 }

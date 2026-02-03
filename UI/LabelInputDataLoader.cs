@@ -1,6 +1,7 @@
 using System;
 using Il2CppTMPro;
 using SimpleLabels.Data;
+using SimpleLabels.Services;
 using SimpleLabels.Settings;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,22 +9,38 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.UI
 {
+    /// <summary>
+    /// Loads label data into the input UI when a station or storage is opened, and binds GameObject if needed.
+    /// </summary>
+    /// <remarks>
+    /// Called from loader patches when storage/station menus open. Derives input key from
+    /// <paramref name="inputGameObject"/> name (strip Clone, _Built, Mk2, etc.). Always loads data into
+    /// input field, colors, and numeric size; visibility and focus are gated by ModSettings.ShowInput
+    /// and AutoFocusInput. If entity exists but has no GameObject (e.g. from network), binds
+    /// <paramref name="entityGameObject"/> and applies the label. Creates entity via LabelService if not tracked.
+    /// </remarks>
     public class LabelInputDataLoader
     {
+        /// <summary>
+        /// Loads label data for the given entity into the input UI for the opened station/storage.
+        /// </summary>
+        /// <remarks>
+        /// Deactivates input first, sets currently managed entity, then populates fields from LabelTracker.
+        /// Binds GameObject when entity exists but ref is null. Creates entity if missing. Activates input
+        /// and focuses only when ShowInput is enabled; data is always loaded so toggle-on shows current entity.
+        /// </remarks>
         public static void LoadLabelData(string entityGuid, GameObject entityGameObject, GameObject inputGameObject, string entityName = "")
         {
             var inputGameObjectName = inputGameObject.name.Replace("(Clone)", "").Replace("_Built", "")
                 .Replace("Mk2", "").Replace("_", "").Trim();
             InputFieldManager.DeactivateInputField(inputGameObjectName);
-            if (!ModSettings.ShowInput.Value) return;
-            InputFieldManager.ActivateInputField(inputGameObjectName);
 
             try
             {
                 if (string.IsNullOrEmpty(entityGuid)) return;
-                
+
                 Logger.Msg($"[InputLoader] Loading label data for entity: GUID={entityGuid}, Name={entityName}");
-                
+
                 LabelTracker.SetCurrentlyManagedEntity(entityGuid);
                 var inputField = InputFieldManager.GetInputField(inputGameObjectName);
                 var numericInputField = InputFieldManager.GetNumericInputField(inputGameObjectName);
@@ -36,9 +53,7 @@ namespace SimpleLabels.UI
                 // and apply the world label (otherwise it would never show for remotely-created labels).
                 if (entityData != null && entityData.GameObject == null && entityGameObject != null)
                 {
-                    LabelTracker.UpdateGameObjectReference(entityGuid, entityGameObject);
-                    if (!string.IsNullOrEmpty(entityData.LabelText))
-                        LabelApplier.ApplyOrUpdateLabel(entityGuid);
+                    LabelService.BindGameObject(entityGuid, entityGameObject);
                 }
 
                 inputField.text = entityData?.LabelText ?? string.Empty;
@@ -54,18 +69,10 @@ namespace SimpleLabels.UI
                 numericInputField.text =
                     entityData?.LabelSize.ToString() ?? ModSettings.LabelDefaultSize.Value.ToString();
 
-                // Focus if enabled
-                if (ModSettings.AutoFocusInput.Value)
-                {
-                    inputField.ActivateInputField();
-                    InputFieldManager._currentInputField = inputField;
-                    InputFieldManager._currentNumericInputField = numericInputField;
-                }
-
                 if (LabelTracker.GetEntityData(entityGuid) == null)
                 {
-                    Logger.Msg($"[InputLoader] Tracking new entity from UI: GUID={entityGuid}");
-                    LabelTracker.TrackEntity(
+                    Logger.Msg($"[InputLoader] Creating new entity from UI: GUID={entityGuid}");
+                    LabelService.CreateLabel(
                         entityGuid,
                         entityGameObject,
                         entityData?.LabelText ?? string.Empty,
@@ -74,6 +81,18 @@ namespace SimpleLabels.UI
                         entityData?.FontSize ?? ModSettings.DEFAULT_FONT_SIZE,
                         entityData?.FontColor ?? ModSettings.FontDefaultColor.Value
                     );
+                }
+
+                // Show/hide input UI based on toggle; always load data above so toggle-on shows current entity.
+                if (ModSettings.ShowInput.Value)
+                {
+                    InputFieldManager.ActivateInputField(inputGameObjectName);
+                    if (ModSettings.AutoFocusInput.Value)
+                    {
+                        inputField.ActivateInputField();
+                        InputFieldManager._currentInputField = inputField;
+                        InputFieldManager._currentNumericInputField = numericInputField;
+                    }
                 }
             }
             catch (Exception e)

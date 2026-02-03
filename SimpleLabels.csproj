@@ -36,8 +36,10 @@
     <Reference Include="Newtonsoft.Json">
       <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\net6\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <!-- Required at build time; at runtime the mod works without it (multiplayer disabled if not in UserLibs). -->
     <Reference Include="SteamNetworkLib">
       <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\UserLibs\SteamNetworkLib-IL2Cpp.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="Unity.TextMeshPro">
       <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Unity.TextMeshPro.dll</HintPath>

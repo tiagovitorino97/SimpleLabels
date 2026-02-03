@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Il2CppScheduleOne.EntityFramework;
 using Il2CppScheduleOne.Management;
 using Il2CppScheduleOne.UI.Management;
@@ -11,6 +11,14 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Patches
 {
+    /// <summary>
+    /// Harmony patches for clipboard UI (RouteListFieldUI, ObjectListFieldUI, ObjectFieldUI). Show custom labels in route/object lists.
+    /// </summary>
+    /// <remarks>
+    /// OnRouteListRefresh updates Source/Label and Destination/Label with LabelTracker text for route GUIDs.
+    /// OnObjectListRefresh and OnObjectFieldRefresh do the same for station/object lists. Gated by
+    /// ModSettings.ShowClipboardRoutes, ShowClipboardStations, ShowClipboardStationsOutput.
+    /// </remarks>
     [HarmonyPatch]
     public class ClipboardPatches
     {
@@ -122,9 +130,11 @@ namespace SimpleLabels.Patches
         public static void OnObjectFieldRefresh(ObjectFieldUI __instance, BuildableItem newVal)
         {
             if (!ModSettings.ShowClipboardStationsOutput.Value) return;
+            // Skip if debug is disabled to avoid triggering Mod Manager logging
+            if (ModSettings.ShowDebug != null && !ModSettings.ShowDebug.Value) return;
+            // null is expected when ObjectFieldUI is used for non-BuildableItem purposes (e.g., clipboard)
             if (newVal == null)
             {
-                Logger.Warning("[Clipboard] Received null BuildableItem");
                 return;
             }
 

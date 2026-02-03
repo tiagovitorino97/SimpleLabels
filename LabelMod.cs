@@ -9,10 +9,21 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels;
 
+/// <summary>
+/// MelonMod entry point for SimpleLabels. Initializes settings, data, network; activates in Main, deactivates in Menu.
+/// </summary>
+/// <remarks>
+/// OnInitializeMelon: ModSettings, LabelDataManager, LabelNetworkManager. OnSceneWasLoaded Main: ActivateMod
+/// (prefab pool, input UI, save hook, Mod Manager integration if present). Menu (from Main): DeactivateMod
+/// (terminate UI/prefab/applier, re-init data). OnUpdate forwards to LabelNetworkManager.
+/// </remarks>
 public class LabelMod : MelonMod
 {
     private static string _previousSceneName = string.Empty;
 
+    /// <summary>
+    /// Sets up settings, loads Labels.json, and initializes Steam network. Runs once at mod load.
+    /// </summary>
     public override void OnInitializeMelon()
     {
         base.OnInitializeMelon();
@@ -49,10 +60,6 @@ public class LabelMod : MelonMod
         _previousSceneName = sceneName;
     }
 
-    public override void OnSceneWasInitialized(int buildIndex, string sceneName)
-    {
-        
-    }
 
     private static void ActivateMod()
     {
@@ -70,8 +77,7 @@ public class LabelMod : MelonMod
 
     private static void DeactivateMod()
     {
-        if (ModSettings.ShowDebug != null && ModSettings.ShowDebug.Value)
-            MelonLogger.Msg("[Mod] Deactivating mod");
+        Logger.Msg("[Mod] Deactivating mod");
         InputFieldManager.Terminate();
         LabelPrefabManager.Terminate();
         LabelApplier.Terminate();
@@ -84,12 +90,6 @@ public class LabelMod : MelonMod
 
     public override void OnUpdate()
     {
-
         LabelNetworkManager.Update();
-
-        if (Input.GetKeyDown(KeyCode.G))
-        {
-           LabelNetworkManager._syncVarTest.Value += 1;
-        }
     }
 }
