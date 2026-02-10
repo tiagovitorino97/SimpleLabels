@@ -99,6 +99,8 @@ namespace SimpleLabels.Patches
         {
             __instance.onLoadComplete.AddListener(new Action(() =>
             {
+                // Load labels for this save (save folder first, else global with migration)
+                LabelDataManager.LoadLabelsForCurrentSave();
                 // Client requests sync (no-op for host). Essential for mid-game join.
                 LabelNetworkManager.RequestLabelSyncFromHost();
                 // Clients load synced labels from network

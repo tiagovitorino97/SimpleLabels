@@ -130,27 +130,10 @@ namespace SimpleLabels.Patches
         public static void OnObjectFieldRefresh(ObjectFieldUI __instance, BuildableItem newVal)
         {
             if (!ModSettings.ShowClipboardStationsOutput.Value) return;
-            // Skip if debug is disabled to avoid triggering Mod Manager logging
-            if (ModSettings.ShowDebug != null && !ModSettings.ShowDebug.Value) return;
-            // null is expected when ObjectFieldUI is used for non-BuildableItem purposes (e.g., clipboard)
-            if (newVal == null)
-            {
-                return;
-            }
+            if (newVal == null) return;
 
-            var objectFieldUILabelTransform = __instance.gameObject.transform.Find("Selection/Label");
-            if (objectFieldUILabelTransform == null)
-            {
-                Logger.Error("[Clipboard] Missing label transform in ObjectField");
-                return;
-            }
-
-            var textComponent = objectFieldUILabelTransform.GetComponentInChildren<TextMeshProUGUI>();
-            if (textComponent == null)
-            {
-                Logger.Error("[Clipboard] Missing text component in ObjectField");
-                return;
-            }
+            var textComponent = __instance.SelectionLabel;
+            if (textComponent == null) return;
 
             var entityData = LabelTracker.GetEntityData(newVal.GUID.ToString());
             if (entityData != null && !string.IsNullOrEmpty(entityData.LabelText))

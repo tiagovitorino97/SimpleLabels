@@ -14,7 +14,7 @@ namespace SimpleLabels.UI
     /// <remarks>
     /// InitializeGUI creates a container at the given anchor, adds "Entity Name", "Name:", "Size:", "Label Color:",
     /// "Font Color:" indicators, and returns the container. InputFieldManager attaches actual input fields to
-    /// this structure. Used by CreateInputFields when setting up per–station-type UI.
+    /// this structure. Used by CreateInputFields when setting up per-station-type UI.
     /// </remarks>
     public class GUIManager
     {

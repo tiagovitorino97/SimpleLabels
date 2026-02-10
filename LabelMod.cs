@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Collections;
 using Il2CppScheduleOne.Persistence;
 using MelonLoader;
 using SimpleLabels.Data;
@@ -6,6 +8,10 @@ using SimpleLabels.UI;
 using UnityEngine;
 using UnityEngine.Events;
 using Logger = SimpleLabels.Utils.Logger;
+
+[assembly: MelonInfo(typeof(SimpleLabels.LabelMod), "SimpleLabels", "2.2.1", "tiagovito")]
+[assembly: MelonGame("TVGS", "Schedule I")]
+[assembly: AssemblyMetadata("NexusModID", "680")]
 
 namespace SimpleLabels;
 
@@ -66,13 +72,20 @@ public class LabelMod : MelonMod
         Logger.Msg("[Mod] Activating mod in Main scene");
         LabelPrefabManager.Initialize();
         InputFieldManager.Initialize();
-        SaveManager.Instance.onSaveStart.AddListener((UnityAction)(() => LabelDataManager.SaveLabelTrackerData()));
+        // Write labels after the game finishes saving so our file isn't overwritten when the game writes the save folder
+        SaveManager.Instance.onSaveStart.AddListener((UnityAction)(() => MelonCoroutines.Start(SaveLabelsAfterGameSave())));
 
         if (RegisteredMelons.Any(mod => mod.Info.Name == "Mod Manager & Phone App"))
         {
             Logger.Msg("[Mod] Mod Manager & Phone App detected, initializing integration");
             ModManagerIntegration.Initialize();
         }
+    }
+
+    private static IEnumerator SaveLabelsAfterGameSave()
+    {
+        yield return new WaitForSeconds(2f);
+        LabelDataManager.SaveLabelTrackerData();
     }
 
     private static void DeactivateMod()
