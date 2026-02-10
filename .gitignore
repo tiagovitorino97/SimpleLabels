@@ -31,3 +31,7 @@ desktop.ini
 
 # Debug / test
 *.log
+
+# Distribution / upload (keep local)
+Thunderstore/
+Nexus/
