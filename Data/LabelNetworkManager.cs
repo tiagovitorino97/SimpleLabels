@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using MelonLoader;
 using Newtonsoft.Json;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Il2CppScheduleOne.Building;
 using Il2CppScheduleOne.EntityFramework;
 using SimpleLabels.Services;
@@ -35,9 +36,7 @@ namespace SimpleLabels.Data
                 _multiplayerAvailable = SteamNetworkBridge.TryLoadAndInitialize(
                     onLobbyCreated: OnLobbyCreated,
                     onLobbyJoined: OnLobbyJoined,
-                    onSyncedLabelsChanged: OnSyncedLabelsChanged,
-                    onLastLabelChangeReceived: OnLastLabelChangeReceived,
-                    onSyncVarTestChanged: () => LoadSyncedLabels());
+                    onLastLabelChangeReceived: OnLastLabelChangeReceived);
             }
             catch (System.IO.FileNotFoundException)
             {
@@ -85,7 +84,7 @@ namespace SimpleLabels.Data
                         _knownMembers.Add(memberId);
                         if (!Equals(memberId, SteamNetworkBridge.GetLocalPlayerId()))
                         {
-                            Logger.Msg($"[Network] New member detected: {memberId}. Syncing labels...");
+                            Logger.Msg($"[Network] New member joined, syncing labels.");
                             SyncLabelsToNetwork();
                         }
                     }
@@ -117,7 +116,7 @@ namespace SimpleLabels.Data
                     {
                         _lastSeenSyncRequest[key] = req;
                         _lastSyncForRequestTime = now;
-                        Logger.Msg($"[Network] Host saw sync request from {steamId}. Syncing labels...");
+                        Logger.Msg($"[Network] Client requested sync, syncing labels.");
                         SyncLabelsToNetwork();
                         break;
                     }
@@ -144,7 +143,7 @@ namespace SimpleLabels.Data
                         (!_lastSeenMemberData.TryGetValue(memberKey, out var lastValue) || lastValue != lastLabelChange))
                     {
                         _lastSeenMemberData[memberKey] = lastLabelChange;
-                        Logger.Msg($"[Network] Host detected label change from client {steamId}");
+                        Logger.Msg($"[Network] Client sent label update.");
                         ProcessClientLabelChange(lastLabelChange, steamId);
                     }
                 }
@@ -165,15 +164,31 @@ namespace SimpleLabels.Data
                     return;
                 }
 
-                Logger.Msg($"[Network] Host processing label change from client {memberId}: GUID={labelData.Guid}, Text='{labelData.LabelText}'");
-
-                LabelService.UpdateLabelFromNetwork(
-                    labelData.Guid,
-                    newLabelText: labelData.LabelText,
-                    newLabelColor: labelData.LabelColor,
-                    newLabelSize: labelData.LabelSize,
-                    newFontSize: labelData.FontSize,
-                    newFontColor: labelData.FontColor);
+                // Entity may not exist on host (e.g. wiped by ResetLabelTracker when loading from file).
+                // Create if missing, update if present.
+                var existing = LabelTracker.GetEntityData(labelData.Guid);
+                if (existing != null)
+                {
+                    LabelService.UpdateLabelFromNetwork(
+                        labelData.Guid,
+                        newLabelText: labelData.LabelText,
+                        newLabelColor: labelData.LabelColor,
+                        newLabelSize: labelData.LabelSize,
+                        newFontSize: labelData.FontSize,
+                        newFontColor: labelData.FontColor);
+                }
+                else
+                {
+                    LabelService.CreateLabel(labelData.Guid, null,
+                        labelText: labelData.LabelText,
+                        labelColor: labelData.LabelColor,
+                        labelSize: labelData.LabelSize,
+                        fontSize: labelData.FontSize,
+                        fontColor: labelData.FontColor,
+                        fromNetwork: true);
+                    // Bind GameObject so the host shows the label visually (entity exists in scene).
+                    LabelService.BindGameObjectForGuid(labelData.Guid);
+                }
                 NotifyLabelChanged(labelData.Guid);
             }
             catch (System.Exception ex)
@@ -188,16 +203,6 @@ namespace SimpleLabels.Data
             SteamNetworkBridge.Dispose();
         }
 
-        private static void OnSyncedLabelsChanged(Dictionary<string, EntityData> newValue)
-        {
-            if (SteamNetworkBridge.GetIsHost()) return;
-            if (newValue != null && newValue.Count > 0)
-            {
-                Logger.Msg($"[Network] Client received updated synced labels from host ({newValue.Count} labels). Loading...");
-                LoadSyncedLabels();
-            }
-        }
-
         private static void OnLobbyCreated()
         {
             if (SteamNetworkBridge.GetIsHost())
@@ -207,7 +212,6 @@ namespace SimpleLabels.Data
         private static void OnLobbyJoined()
         {
             if (SteamNetworkBridge.GetIsHost()) return;
-            Logger.Msg($"[Network] Client joined lobby. Synced labels count: {SteamNetworkBridge.GetSyncedLabelsCount()}");
             LoadSyncedLabels();
         }
 
@@ -216,15 +220,14 @@ namespace SimpleLabels.Data
             if (SteamNetworkBridge.GetIsHost()) return;
             if (newValue == null || string.IsNullOrEmpty(newValue.Guid)) return;
 
-            Logger.Msg($"[Network] Client received label change from host: GUID={newValue.Guid}, Text='{newValue.LabelText}'");
-
             var existing = LabelTracker.GetEntityData(newValue.Guid);
             if (existing == null)
             {
                 LabelService.CreateLabel(
                     newValue.Guid, null,
                     newValue.LabelText, newValue.LabelColor, newValue.LabelSize,
-                    newValue.FontSize, newValue.FontColor);
+                    newValue.FontSize, newValue.FontColor,
+                    fromNetwork: true);
                 LabelService.BindAllGameObjectsAndApplyLabels();
             }
             else
@@ -245,18 +248,15 @@ namespace SimpleLabels.Data
             if (!SteamNetworkBridge.GetIsHost()) return;
 
             var data = LabelTracker.GetAllEntityData();
-            SteamNetworkBridge.SetSyncedLabelsValue(data);
-            Logger.Msg($"[Network] Host synced {data.Count} labels to network.");
-        }
-
-        public static void OnNewMemberJoined()
-        {
-            if (!_multiplayerAvailable) return;
-            if (SteamNetworkBridge.GetIsHost())
+            var applied = new Dictionary<string, EntityData>();
+            foreach (var kvp in data)
             {
-                SyncLabelsToNetwork();
-                Logger.Msg("[Network] Host synced labels for new member.");
+                if (string.IsNullOrEmpty(kvp.Value?.Guid)) continue;
+                applied[kvp.Key] = new EntityData(kvp.Value.Guid, kvp.Value.LabelText ?? "", kvp.Value.LabelColor, kvp.Value.LabelSize, kvp.Value.FontSize, kvp.Value.FontColor);
             }
+            var json = JsonConvert.SerializeObject(applied);
+            SteamNetworkBridge.SetLobbyLabelsJson(json);
+            Logger.Msg($"[Network] Synced {applied.Count} labels to lobby.");
         }
 
         public static void NotifyLabelChanged(string guid)
@@ -269,13 +269,11 @@ namespace SimpleLabels.Data
 
             if (SteamNetworkBridge.GetIsHost())
             {
-                Logger.Msg($"[Network] Host broadcasting label change: GUID={guid}, Text='{entity.LabelText}'");
                 var payload = new EntityData(guid, entity.LabelText, entity.LabelColor, entity.LabelSize, entity.FontSize, entity.FontColor);
                 SteamNetworkBridge.SetLastLabelChangeValue(payload);
             }
             else if (SteamNetworkBridge.GetCurrentLobby() != null)
             {
-                Logger.Msg($"[Network] Client sending label change to host: GUID={guid}, Text='{entity.LabelText}'");
                 var payload = new EntityData(guid, entity.LabelText, entity.LabelColor, entity.LabelSize, entity.FontSize, entity.FontColor);
                 try
                 {
@@ -293,11 +291,12 @@ namespace SimpleLabels.Data
             if (!_multiplayerAvailable) return;
             if (SteamNetworkBridge.GetIsHost() || SteamNetworkBridge.GetCurrentLobby() == null) return;
 
-            var data = SteamNetworkBridge.GetSyncedLabelsValue();
+            var data = SteamNetworkBridge.GetLobbyLabelsFromJson();
             var count = data?.Count ?? 0;
-            Logger.Msg($"[Network] Client loading {count} synced labels from network.");
+            Logger.Msg($"[Network] Loading {count} labels from host.");
             MelonCoroutines.Start(LoadSyncedLabelsRoutine(data ?? new Dictionary<string, EntityData>()));
-            if (count == 0 && !_clientSyncRetryRunning)
+            var trackedCount = LabelTracker.GetAllTrackedGuids().Count;
+            if (count == 0 && trackedCount == 0 && !_clientSyncRetryRunning && IsInMainScene())
                 MelonCoroutines.Start(ClientSyncRetryRoutine());
         }
 
@@ -308,11 +307,20 @@ namespace SimpleLabels.Data
             LabelService.ApplyNetworkLabels(data);
             yield return new WaitForSeconds(1f);
             LabelService.BindAllGameObjectsAndApplyLabels();
-            Logger.Msg("[Network] Client finished loading synced labels.");
+            Logger.Msg("[Network] Labels loaded.");
         }
 
         private const int ClientSyncRetryMax = 15;
         private const float ClientSyncRetryIntervalSeconds = 2.5f;
+
+        private static bool IsInMainScene()
+        {
+            try
+            {
+                return SceneManager.GetActiveScene().name == "Main";
+            }
+            catch { return false; }
+        }
 
         private static IEnumerator ClientSyncRetryRoutine()
         {
@@ -328,20 +336,25 @@ namespace SimpleLabels.Data
                     yield break;
                 }
 
-                var count = SteamNetworkBridge.GetSyncedLabelsCount();
-                if (count > 0)
+                if (!IsInMainScene())
+                    continue;
+
+                var lobbyData = SteamNetworkBridge.GetLobbyLabelsFromJson();
+                var count = lobbyData?.Count ?? 0;
+                var trackedCount = LabelTracker.GetAllTrackedGuids().Count;
+                if (count > 0 || trackedCount > 0)
                 {
-                    Logger.Msg("[Network] Client received labels, stopping sync retry.");
+                    Logger.Msg($"[Network] Labels loaded ({trackedCount} applied).");
                     _clientSyncRetryRunning = false;
                     yield break;
                 }
 
-                Logger.Msg($"[Network] Client retrying label sync (attempt {i + 2}/{ClientSyncRetryMax})...");
+                Logger.Msg($"[Network] Waiting for host labels ({i + 2}/{ClientSyncRetryMax})...");
                 RequestLabelSyncFromHost();
                 LoadSyncedLabels();
             }
 
-            Logger.Msg("[Network] Client gave up label sync retries.");
+            Logger.Msg("[Network] Could not load labels from host.");
             _clientSyncRetryRunning = false;
         }
 

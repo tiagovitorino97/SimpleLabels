@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using MelonLoader;
+using Newtonsoft.Json;
 using SteamNetworkLib;
 using SteamNetworkLib.Sync;
 using UnityEngine;
@@ -11,28 +12,22 @@ namespace SimpleLabels.Data
 {
     /// <summary>
     /// Isolates all SteamNetworkLib usage so that the main mod never references it.
-    /// When SteamNetworkLib is missing, only this class triggers the load (when its methods are first called).
-    /// LabelNetworkManager calls the bridge only after catching the missing-DLL case in Initialize().
+    /// SyncVars work poorly with dictionaries - use Lobby Data (host sets JSON string) for full sync.
+    /// Keep HostSyncVar&lt;EntityData&gt; for real-time single-label updates.
     /// </summary>
     internal static class SteamNetworkBridge
     {
+        private const string LobbyDataKeyLabels = "SimpleLabels_Labels";
+
         private static SteamNetworkClient _client;
-        private static HostSyncVar<Dictionary<string, EntityData>> _syncedLabels;
-        private static HostSyncVar<int> _syncVarTest;
         private static HostSyncVar<EntityData> _lastLabelChange;
 
         private static bool _initialized;
 
-        /// <summary>
-        /// Tries to load SteamNetworkLib and create the client. Call from LabelNetworkManager.Initialize() inside try/catch.
-        /// Returns true if multiplayer is available, false otherwise. On success, runs the init coroutine.
-        /// </summary>
         public static bool TryLoadAndInitialize(
             Action onLobbyCreated,
             Action onLobbyJoined,
-            Action<Dictionary<string, EntityData>> onSyncedLabelsChanged,
-            Action<EntityData> onLastLabelChangeReceived,
-            Action onSyncVarTestChanged = null)
+            Action<EntityData> onLastLabelChangeReceived)
         {
             try
             {
@@ -43,7 +38,7 @@ namespace SimpleLabels.Data
                 };
 
                 _client = new SteamNetworkClient(rules);
-                MelonCoroutines.Start(TryInitializeSteamCoroutine(onLobbyCreated, onLobbyJoined, onSyncedLabelsChanged, onLastLabelChangeReceived, onSyncVarTestChanged));
+                MelonCoroutines.Start(TryInitializeSteamCoroutine(onLobbyCreated, onLobbyJoined, onLastLabelChangeReceived));
                 return true;
             }
             catch (Exception ex)
@@ -56,9 +51,7 @@ namespace SimpleLabels.Data
         private static IEnumerator TryInitializeSteamCoroutine(
             Action onLobbyCreated,
             Action onLobbyJoined,
-            Action<Dictionary<string, EntityData>> onSyncedLabelsChanged,
-            Action<EntityData> onLastLabelChangeReceived,
-            Action onSyncVarTestChanged)
+            Action<EntityData> onLastLabelChangeReceived)
         {
             yield return new WaitForSeconds(2f);
 
@@ -66,44 +59,23 @@ namespace SimpleLabels.Data
             {
                 try
                 {
-                    Logger.Msg("[Network] Attempting to initialize SteamNetworkClient...");
                     _client.Initialize();
                     _initialized = true;
-                    Logger.Msg("[Network] SteamNetworkClient successfully connected!");
+                    Logger.Msg("[Network] Connected.");
 
-                    InitializeSyncVars();
-                    SetupEventHandlers(onLobbyCreated, onLobbyJoined, onSyncedLabelsChanged, onLastLabelChangeReceived, onSyncVarTestChanged);
+                    _lastLabelChange = _client.CreateHostSyncVar<EntityData>("LastLabelChange", new EntityData());
+                    _client.OnLobbyCreated += (_, __) => onLobbyCreated?.Invoke();
+                    _client.OnLobbyJoined += (_, __) => onLobbyJoined?.Invoke();
+                    _lastLabelChange.OnValueChanged += (_, newVal) => onLastLabelChangeReceived?.Invoke(newVal);
                 }
                 catch (Exception ex)
                 {
-                    Logger.Warning($"[Network] Steam not ready yet. Retrying in 2s... (Error: {ex.Message})");
+                    Logger.Warning($"[Network] Steam not ready, retrying... ({ex.Message})");
                 }
 
                 if (!_initialized)
                     yield return new WaitForSeconds(2f);
             }
-        }
-
-        private static void InitializeSyncVars()
-        {
-            _syncedLabels = _client.CreateHostSyncVar<Dictionary<string, EntityData>>("SyncedLabels", new Dictionary<string, EntityData>());
-            _syncVarTest = _client.CreateHostSyncVar<int>("SyncVarTest", 0);
-            _lastLabelChange = _client.CreateHostSyncVar<EntityData>("LastLabelChange", new EntityData());
-        }
-
-        private static void SetupEventHandlers(
-            Action onLobbyCreated,
-            Action onLobbyJoined,
-            Action<Dictionary<string, EntityData>> onSyncedLabelsChanged,
-            Action<EntityData> onLastLabelChangeReceived,
-            Action onSyncVarTestChanged)
-        {
-            _client.OnLobbyCreated += (_, __) => onLobbyCreated?.Invoke();
-            _client.OnLobbyJoined += (_, __) => onLobbyJoined?.Invoke();
-            _syncedLabels.OnValueChanged += (_, newVal) => onSyncedLabelsChanged?.Invoke(newVal);
-            _lastLabelChange.OnValueChanged += (_, newVal) => onLastLabelChangeReceived?.Invoke(newVal);
-            if (onSyncVarTestChanged != null)
-                _syncVarTest.OnValueChanged += (_, __) => onSyncVarTestChanged?.Invoke();
         }
 
         public static void ProcessIncomingMessages() => _client?.ProcessIncomingMessages();
@@ -112,7 +84,6 @@ namespace SimpleLabels.Data
 
         public static object GetCurrentLobby() => _client?.CurrentLobby;
 
-        /// <summary>Returns SteamId of each lobby member so callers never reference SteamNetworkLib types.</summary>
         public static List<object> GetLobbyMemberSteamIds()
         {
             var list = new List<object>();
@@ -137,18 +108,38 @@ namespace SimpleLabels.Data
 
         public static void Dispose() => _client?.Dispose();
 
-        public static Dictionary<string, EntityData> GetSyncedLabelsValue() => _syncedLabels?.Value;
-
-        public static void SetSyncedLabelsValue(Dictionary<string, EntityData> value)
-        {
-            if (_syncedLabels != null) _syncedLabels.Value = value;
-        }
-
         public static void SetLastLabelChangeValue(EntityData value)
         {
             if (_lastLabelChange != null) _lastLabelChange.Value = value;
         }
 
-        public static int GetSyncedLabelsCount() => _syncedLabels?.Value?.Count ?? 0;
+        /// <summary>Host sets lobby data with JSON of labels. Lobby Data works for strings; SyncVars fail with dictionaries.</summary>
+        public static void SetLobbyLabelsJson(string json)
+        {
+            try
+            {
+                if (_client != null && _client.IsHost)
+                    _client.SetLobbyData(LobbyDataKeyLabels, json);
+            }
+            catch (Exception ex) { Logger.Error($"[Network] Failed to set lobby labels: {ex.Message}"); }
+        }
+
+        /// <summary>Client reads labels from lobby data (host sets it). Returns null if not found or empty.</summary>
+        public static Dictionary<string, EntityData> GetLobbyLabelsFromJson()
+        {
+            try
+            {
+                if (_client == null) return null;
+                var json = _client.GetLobbyData(LobbyDataKeyLabels);
+                if (string.IsNullOrEmpty(json)) return null;
+                var data = JsonConvert.DeserializeObject<Dictionary<string, EntityData>>(json);
+                return data;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[Network] Failed to get lobby labels: {ex.Message}");
+                return null;
+            }
+        }
     }
 }

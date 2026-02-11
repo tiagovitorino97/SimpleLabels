@@ -41,6 +41,7 @@ namespace SimpleLabels.Data
         public GameObject GameObject { get; set; }
 
         public string LabelText { get; set; }
+        /// <summary>Label scale (1–30).</summary>
         public int LabelSize { get; set; }
         public string LabelColor { get; set; }
         public int FontSize { get; set; }

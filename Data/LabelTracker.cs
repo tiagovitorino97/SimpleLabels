@@ -45,7 +45,6 @@ namespace SimpleLabels.Data
             {
                 EntityDataDictionary.Add(guid,
                     new EntityData(guid, gameObject, labelText, labelColor, labelSize, fontSize, fontColor));
-                Logger.Msg($"[LabelTracker] Stored new entity: GUID={guid}, Text='{labelText}'");
             }
             else
             {
@@ -66,15 +65,11 @@ namespace SimpleLabels.Data
             if (!TryGetEntity(guid, out var entityData))
                 return;
 
-            var oldText = entityData.LabelText;
-            
             if (newLabelText != null) entityData.LabelText = newLabelText;
             if (newLabelColor != null) entityData.LabelColor = newLabelColor;
             if (newLabelSize.HasValue) entityData.LabelSize = newLabelSize.Value;
             if (newFontSize.HasValue) entityData.FontSize = newFontSize.Value;
             if (newFontColor != null) entityData.FontColor = newFontColor;
-            
-            Logger.Msg($"[LabelTracker] Updated entity data: GUID={guid}, Text='{oldText}' -> '{entityData.LabelText}'");
         }
 
         private static bool TryGetEntity(string guid, out EntityData entityData)
@@ -88,11 +83,7 @@ namespace SimpleLabels.Data
             }
 
             if (!EntityDataDictionary.TryGetValue(guid, out entityData))
-            {
-                // This is expected when loading labels from other save games, so only log in debug mode
-                Logger.Msg($"Entity with GUID {guid} not found");
                 return false;
-            }
 
             return true;
         }

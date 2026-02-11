@@ -31,13 +31,13 @@ namespace SimpleLabels.UI
     /// </remarks>
     public class InputFieldManager
     {
-        public static Dictionary<string, TMP_InputField> InputFields = new Dictionary<string, TMP_InputField>();
-        public static Dictionary<string, TMP_InputField> NumericInputFields = new Dictionary<string, TMP_InputField>();
-        public static Dictionary<string, GameObject> ContainersGameObjects = new Dictionary<string, GameObject>();
-        public static Dictionary<string, Button> ToggleOnOffButtons = new Dictionary<string, Button>();
-        public static Dictionary<string, TextMeshProUGUI> EntityInicatorNames = new Dictionary<string, TextMeshProUGUI>();
+        internal static Dictionary<string, TMP_InputField> InputFields = new Dictionary<string, TMP_InputField>();
+        internal static Dictionary<string, TMP_InputField> NumericInputFields = new Dictionary<string, TMP_InputField>();
+        internal static Dictionary<string, GameObject> ContainersGameObjects = new Dictionary<string, GameObject>();
+        internal static Dictionary<string, Button> ToggleOnOffButtons = new Dictionary<string, Button>();
+        internal static Dictionary<string, TextMeshProUGUI> EntityInicatorNames = new Dictionary<string, TextMeshProUGUI>();
 
-        public static Dictionary<string, Vector2> SupportedUITypes = new Dictionary<string, Vector2>()
+        internal static Dictionary<string, Vector2> SupportedUITypes = new Dictionary<string, Vector2>()
         {
             { "UI/StorageMenu", new Vector2(0.5f, 0.75f) },
             { "UI/Stations/PackagingStation", new Vector2(0.5f, 0.75f) },
@@ -50,8 +50,15 @@ namespace SimpleLabels.UI
             { "UI/Stations/MushroomSpawnStation", new Vector2(0.5f, 0.75f) }
         };
 
-        public static TMP_InputField _currentInputField;
-        public static TMP_InputField _currentNumericInputField;
+        private static TMP_InputField _currentInputField;
+        private static TMP_InputField _currentNumericInputField;
+
+        /// <summary>Sets the currently focused input fields (used when activating with auto-focus).</summary>
+        public static void SetCurrentInputFields(TMP_InputField inputField, TMP_InputField numericInputField)
+        {
+            _currentInputField = inputField;
+            _currentNumericInputField = numericInputField;
+        }
 
         /// <summary>
         /// When user types {itemId}, we replace the input with the item name (visual feedback).
@@ -454,8 +461,6 @@ namespace SimpleLabels.UI
             _pendingItemColor = null;
             _pendingItemText = null;
 
-            Logger.Msg($"[InputField] User submitted label change: GUID={entityGuid}, Text='{finalText}'");
-            
             LabelService.UpdateLabel(
                 guid: entityGuid, 
                 newLabelText: finalText,
@@ -500,8 +505,6 @@ namespace SimpleLabels.UI
                 return;
 
             var guid = LabelTracker.GetCurrentlyManagedEntityGuid();
-            Logger.Msg($"[InputField] User changed label size: GUID={guid}, Size={value}");
-            
             LabelService.UpdateLabel(guid: guid, newLabelSize: value);
         }
 

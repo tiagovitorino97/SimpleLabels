@@ -1,6 +1,7 @@
 using System;
 using Il2CppTMPro;
 using SimpleLabels.Data;
+using SimpleLabels.Patches;
 using SimpleLabels.Services;
 using SimpleLabels.Settings;
 using UnityEngine;
@@ -31,15 +32,12 @@ namespace SimpleLabels.UI
         /// </remarks>
         public static void LoadLabelData(string entityGuid, GameObject entityGameObject, GameObject inputGameObject, string entityName = "")
         {
-            var inputGameObjectName = inputGameObject.name.Replace("(Clone)", "").Replace("_Built", "")
-                .Replace("Mk2", "").Replace("_", "").Trim();
+            var inputGameObjectName = LoaderPatches.CleanGameObjectName(inputGameObject.name);
             InputFieldManager.DeactivateInputField(inputGameObjectName);
 
             try
             {
                 if (string.IsNullOrEmpty(entityGuid)) return;
-
-                Logger.Msg($"[InputLoader] Loading label data for entity: GUID={entityGuid}, Name={entityName}");
 
                 LabelTracker.SetCurrentlyManagedEntity(entityGuid);
                 var inputField = InputFieldManager.GetInputField(inputGameObjectName);
@@ -71,7 +69,6 @@ namespace SimpleLabels.UI
 
                 if (LabelTracker.GetEntityData(entityGuid) == null)
                 {
-                    Logger.Msg($"[InputLoader] Creating new entity from UI: GUID={entityGuid}");
                     LabelService.CreateLabel(
                         entityGuid,
                         entityGameObject,
@@ -90,8 +87,7 @@ namespace SimpleLabels.UI
                     if (ModSettings.AutoFocusInput.Value)
                     {
                         inputField.ActivateInputField();
-                        InputFieldManager._currentInputField = inputField;
-                        InputFieldManager._currentNumericInputField = numericInputField;
+                        InputFieldManager.SetCurrentInputFields(inputField, numericInputField);
                     }
                 }
             }

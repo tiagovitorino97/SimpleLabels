@@ -46,7 +46,7 @@ namespace SimpleLabels.Patches
                 var routeEntryUI = entryTransform.GetComponent<RouteEntryUI>();
                 if (routeEntryUI?.AssignedRoute?.GetData() == null)
                 {
-                    Logger.Warning($"[Clipboard] Missing route data on {entryTransform.name}");
+                    Logger.Msg($"[Clipboard] Missing route data on {entryTransform.name}");
                     continue;
                 }
 
@@ -61,14 +61,14 @@ namespace SimpleLabels.Patches
             var labelTransform = entryTransform.Find(labelPath);
             if (labelTransform == null)
             {
-                Logger.Warning($"[Clipboard] Missing label path: {labelPath}");
+                Logger.Msg($"[Clipboard] Missing label path: {labelPath}");
                 return;
             }
 
             var label = labelTransform.GetComponentInChildren<TextMeshProUGUI>();
             if (label == null)
             {
-                Logger.Warning($"[Clipboard] Missing TextMeshPro component at {labelPath}");
+                Logger.Msg($"[Clipboard] Missing TextMeshPro component at {labelPath}");
                 return;
             }
             
@@ -100,14 +100,14 @@ namespace SimpleLabels.Patches
                 var objectLabelTransform = entryTransform.Find("Title");
                 if (objectLabelTransform == null)
                 {
-                    Logger.Warning($"[Clipboard] Missing title on {entryTransform.name}");
+                    Logger.Msg($"[Clipboard] Missing title on {entryTransform.name}");
                     continue;
                 }
 
                 var textComponent = objectLabelTransform.GetComponentInChildren<TextMeshProUGUI>();
                 if (textComponent == null)
                 {
-                    Logger.Warning($"[Clipboard] Missing text component on {entryTransform.name}");
+                    Logger.Msg($"[Clipboard] Missing text component on {entryTransform.name}");
                     continue;
                 }
 

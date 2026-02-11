@@ -124,15 +124,11 @@ namespace SimpleLabels.Patches
                 var cleanName = CleanEntityName(originalName);
 
                 if (!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(cleanName))
-                {
-                    Logger.Msg($"[Loader] Entity type '{cleanName}' not supported for labels");
                     return;
-                }
 
                 var existing = LabelTracker.GetEntityData(guid);
                 if (existing == null)
                 {
-                    Logger.Msg($"[Loader] Creating new entity: GUID={guid}, Type={cleanName}");
                     LabelService.CreateLabel(
                         guid,
                         gameObject,
@@ -145,7 +141,6 @@ namespace SimpleLabels.Patches
                 }
                 else
                 {
-                    Logger.Msg($"[Loader] Binding GameObject to existing entity: GUID={guid}");
                     LabelService.BindGameObject(guid, gameObject);
                 }
             }
@@ -155,11 +150,22 @@ namespace SimpleLabels.Patches
             }
         }
 
+        /// <summary>For LabelPlacementConfigs lookup. Strips (Clone), _Built.</summary>
         public static string CleanEntityName(string originalName)
         {
             return originalName
                 .Replace("(Clone)", "")
                 .Replace("_Built", "")
+                .Trim();
+        }
+
+        /// <summary>For InputFieldManager lookup. Strips (Clone), _Built, Mk2, _.</summary>
+        public static string CleanGameObjectName(string name)
+        {
+            return name.Replace("(Clone)", "")
+                .Replace("_Built", "")
+                .Replace("Mk2", "")
+                .Replace("_", "")
                 .Trim();
         }
     }

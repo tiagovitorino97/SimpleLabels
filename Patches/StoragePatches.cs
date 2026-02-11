@@ -39,7 +39,7 @@ namespace SimpleLabels.Patches
             var storageGuid = GetStorageGuid(entity);
             var storageEntityName = entity.StorageEntityName;
 
-            var inputGameObjectName = CleanGameObjectName(inputGameObject.name);
+            var inputGameObjectName = LoaderPatches.CleanGameObjectName(inputGameObject.name);
             InputFieldManager.DeactivateInputField(inputGameObjectName);
 
             LabelInputDataLoader.LoadLabelData(storageGuid, storageGameObject, inputGameObject, storageEntityName);
@@ -125,49 +125,16 @@ namespace SimpleLabels.Patches
                 }
                 
                 var openedStorageEntityName = LoaderPatches.CleanEntityName(__instance.OpenedStorageEntity.name);
-                if(!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(openedStorageEntityName)) DisableInputField(__instance);
-
-                
+                if (!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(openedStorageEntityName))
+                    DisableInputField(__instance);
             }
         }
-        
+
         private static void DisableInputField(StorageMenu instance)
         {
-            var inputGameObjectName = CleanGameObjectName(instance.gameObject.name);
+            var inputGameObjectName = LoaderPatches.CleanGameObjectName(instance.gameObject.name);
             InputFieldManager.DeactivateInputField(inputGameObjectName);
             InputFieldManager.DisableToggleOnOffButton(inputGameObjectName);
-        }
-
-        private static string CleanGameObjectName(string name)
-        {
-            return name.Replace("(Clone)", "")
-                .Replace("_Built", "")
-                .Replace("Mk2", "")
-                .Replace("_", "")
-                .Trim();
-        }
-    }
-    
-    
-
-    public class ColorComparer : IEqualityComparer<Color32>
-    {
-        private const int ColorTolerance = 15;
-
-        public bool Equals(Color32 x, Color32 y)
-        {
-            return Math.Abs(x.r - y.r) <= ColorTolerance &&
-                   Math.Abs(x.g - y.g) <= ColorTolerance &&
-                   Math.Abs(x.b - y.b) <= ColorTolerance;
-        }
-
-        public int GetHashCode(Color32 color)
-        {
-            var r = color.r / ColorTolerance;
-            var g = color.g / ColorTolerance;
-            var b = color.b / ColorTolerance;
-
-            return (r << 16) | (g << 8) | b;
         }
     }
 }

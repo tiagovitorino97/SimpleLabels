@@ -9,7 +9,7 @@
 	<AssemblyName>SimpleLabels</AssemblyName>
 	<RootNamespace>SimpleLabels</RootNamespace>
     <Description>SimpleLabels Mod</Description>
-    <ModVersion>2.2.1</ModVersion>
+    <PackageVersion>2.2.1</PackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -79,8 +79,8 @@
     <MakeDir Directories="$(ProjectDir)Thunderstore;$(ProjectDir)Nexus;$(ProjectDir)Thunderstore\Mods;$(ProjectDir)Nexus\Mods" />
     <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;$(ProjectDir)Nexus\Mods\&quot;" />
     <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;$(ProjectDir)Thunderstore\Mods\&quot;" />
-    <Exec Command="cd /d &quot;$(ProjectDir)Nexus&quot; &amp;&amp; &quot;C:\Program Files\WinRAR\Rar.exe&quot; a -r SimpleLabels$(ModVersion).rar Mods" />
-    <Exec Command="powershell -NoProfile -Command &quot;Set-Location -LiteralPath '$(ProjectDir)Thunderstore'; Compress-Archive -Path 'Mods','icon.png','manifest.json','README.md' -DestinationPath 'SimpleLabels$(ModVersion).zip' -Force&quot;" />
+    <Exec Command="cd /d &quot;$(ProjectDir)Nexus&quot; &amp;&amp; &quot;C:\Program Files\WinRAR\Rar.exe&quot; a -r SimpleLabels$(PackageVersion).rar Mods" />
+    <Exec Command="cd /d &quot;$(ProjectDir)Thunderstore&quot; &amp;&amp; &quot;C:\Program Files\WinRAR\Rar.exe&quot; a -r SimpleLabels$(PackageVersion).rar Mods icon.png manifest.json README.md" />
     <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Schedule I\Mods&quot;&#xD;&#xA;powershell -ExecutionPolicy Bypass -File &quot;C:\Users\tiago\Desktop\CODING PROJECTS\CopyFileToHyperV.ps1&quot;" />
   </Target>
 

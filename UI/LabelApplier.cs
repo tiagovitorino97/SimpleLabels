@@ -40,10 +40,7 @@ namespace SimpleLabels.UI
 
             var entityType = CleanEntityName(entityData.GameObject.name);
             if (!LabelPlacementConfigs.LabelPlacementConfigsDictionary.TryGetValue(entityType, out var labelPlacements))
-            {
-                Logger.Msg($"[LabelApplier] No placement config for entity type: {entityType}");
                 return;
-            }
 
             if (String.IsNullOrEmpty(entityData.LabelText))
             {

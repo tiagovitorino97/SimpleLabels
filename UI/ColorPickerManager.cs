@@ -114,13 +114,11 @@ namespace SimpleLabels.UI
             if (type == ColorPickerType.Label)
             {
                 inputField.GetComponent<Image>().color = selectedColor;
-                Logger.Msg($"[ColorPicker] User changed label color: GUID={guid}, Color={colorHex}");
                 LabelService.UpdateLabel(guid, newLabelColor: colorHex);
             }
             else
             {
                 inputField.GetComponentInChildren<TextMeshProUGUI>().color = selectedColor;
-                Logger.Msg($"[ColorPicker] User changed font color: GUID={guid}, Color={colorHex}");
                 LabelService.UpdateLabel(guid, newFontColor: colorHex);
             }
         }

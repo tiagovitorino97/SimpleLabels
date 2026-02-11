@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using MelonLoader;
 using MelonLoader.Utils;
 using Newtonsoft.Json;
@@ -28,7 +27,6 @@ namespace SimpleLabels.Data
         {
             _globalDataDirectory = Path.Combine(MelonEnvironment.ModsDirectory, "SimpleLabels");
             _globalDataFilePath = Path.Combine(_globalDataDirectory, "Labels.json");
-            Logger.Msg("[DataManager] Initializing (per-save labels).");
             EnsureGlobalDataDirectoryExists();
             ResetLabelTracker();
         }
@@ -49,14 +47,14 @@ namespace SimpleLabels.Data
         /// <summary>
         /// Loads labels for the current save. Call when a save has finished loading (e.g. LoadManager.onLoadComplete).
         /// Flow: if save folder has Labels.json -> load from there; else if global has Labels.json -> load from global and schedule migration; else new save (no load).
+        /// Clients with no file must NOT reset the tracker; they may have received labels from the host via network.
         /// </summary>
         public static void LoadLabelsForCurrentSave()
         {
-            ResetLabelTracker();
             string savePath = SavePathResolver.GetCurrentSavePath();
             if (string.IsNullOrEmpty(savePath))
             {
-                Logger.Msg("[DataManager] No save path; skipping load.");
+                Logger.Msg("[SimpleLabels] No save path; skipping load.");
                 return;
             }
 
@@ -66,6 +64,7 @@ namespace SimpleLabels.Data
             // 1) Prefer save folder
             if (!string.IsNullOrEmpty(saveFilePath) && File.Exists(saveFilePath))
             {
+                ResetLabelTracker();
                 LoadFromFile(saveFilePath);
                 LabelService.BindAllGameObjectsAndApplyLabels();
                 LabelNetworkManager.SyncLabelsToNetwork();
@@ -75,6 +74,7 @@ namespace SimpleLabels.Data
             // 2) Fallback: global (legacy) then migrate
             if (File.Exists(globalPath))
             {
+                ResetLabelTracker();
                 Logger.Warning($"[SimpleLabels] One-time migration: moving labels from {_globalDataFilePath} into this save's folder. Normal, happens once.");
                 LoadFromFile(globalPath);
                 LabelService.BindAllGameObjectsAndApplyLabels();
@@ -83,8 +83,8 @@ namespace SimpleLabels.Data
                 return;
             }
 
-            // 3) No files: new save, nothing to load
-            Logger.Msg("[DataManager] No labels file in save folder or global; starting empty.");
+            // 3) No files: client or new save. Do NOT reset; client may have labels from host via _lastLabelChange.
+            Logger.Msg("[SimpleLabels] No saved labels; starting empty.");
         }
 
         private static void LoadFromFile(string filePath)
@@ -94,28 +94,39 @@ namespace SimpleLabels.Data
                 string json = File.ReadAllText(filePath);
                 var savedData = JsonConvert.DeserializeObject<Dictionary<string, EntityData>>(json);
                 if (savedData == null || savedData.Count == 0)
-                {
-                    if (savedData != null) Logger.Msg("[DataManager] Labels file empty.");
                     return;
-                }
-                Logger.Msg($"[DataManager] Loading {savedData.Count} labels from {filePath}");
+                Logger.Msg($"[SimpleLabels] Loaded {savedData.Count} labels from save.");
                 foreach (var entityData in savedData.Values)
                 {
                     if (string.IsNullOrEmpty(entityData?.Guid)) continue;
-                    LabelService.CreateLabel(
-                        entityData.Guid,
-                        null,
-                        entityData.LabelText ?? "",
-                        entityData.LabelColor,
-                        entityData.LabelSize,
-                        entityData.FontSize,
-                        entityData.FontColor ?? ""
-                    );
+                    var existing = LabelTracker.GetEntityData(entityData.Guid);
+                    if (existing != null)
+                    {
+                        LabelService.UpdateLabel(entityData.Guid,
+                            newLabelText: entityData.LabelText ?? "",
+                            newLabelColor: entityData.LabelColor,
+                            newLabelSize: entityData.LabelSize,
+                            newFontSize: entityData.FontSize,
+                            newFontColor: entityData.FontColor,
+                            fromNetwork: false);
+                    }
+                    else
+                    {
+                        LabelService.CreateLabel(
+                            entityData.Guid,
+                            null,
+                            entityData.LabelText ?? "",
+                            entityData.LabelColor,
+                            entityData.LabelSize,
+                            entityData.FontSize,
+                            entityData.FontColor ?? ""
+                        );
+                    }
                 }
             }
             catch (Exception e)
             {
-                Logger.Error($"Failed to load labels from {filePath}: {e.Message}");
+                Logger.Error($"[SimpleLabels] Failed to load labels: {e.Message}");
             }
         }
 
@@ -161,7 +172,7 @@ namespace SimpleLabels.Data
                 }
                 catch (Exception e)
                 {
-                    Logger.Error($"[DataManager] Failed to write save folder labels: {e.Message}");
+                    Logger.Error($"[SimpleLabels] Failed to write save folder labels: {e.Message}");
                     return;
                 }
             }
@@ -177,7 +188,7 @@ namespace SimpleLabels.Data
                 }
                 catch (Exception e)
                 {
-                    Logger.Error($"[DataManager] Failed to create save folder labels file: {e.Message}");
+                    Logger.Error($"[SimpleLabels] Failed to create save folder labels file: {e.Message}");
                 }
             }
 
@@ -205,12 +216,12 @@ namespace SimpleLabels.Data
                 {
                     globalJson = JsonConvert.SerializeObject(globalData, Formatting.Indented);
                     File.WriteAllText(_globalDataFilePath, globalJson);
-                    Logger.Msg($"[DataManager] Removed {applied.Count} migrated labels from global file.");
+                    Logger.Msg($"[SimpleLabels] Migrated {applied.Count} labels to save folder.");
                 }
             }
             catch (Exception e)
             {
-                Logger.Error($"[DataManager] Failed to update global file: {e.Message}");
+                Logger.Error($"[SimpleLabels] Failed to update global file: {e.Message}");
             }
         }
 
@@ -222,7 +233,7 @@ namespace SimpleLabels.Data
             string savePath = SavePathResolver.GetCurrentSavePath();
             if (string.IsNullOrEmpty(savePath))
             {
-                Logger.Msg("[DataManager] No save path; skipping save.");
+                Logger.Msg("[SimpleLabels] No save path; skipping save.");
                 return;
             }
 
@@ -246,13 +257,12 @@ namespace SimpleLabels.Data
                     dataToSave[guid] = new EntityData(data.Guid, data.LabelText, data.LabelColor, data.LabelSize, data.FontSize, data.FontColor);
                 }
 
-                Logger.Msg($"[DataManager] Saving {dataToSave.Count} labels to save folder.");
                 var json = JsonConvert.SerializeObject(dataToSave, Formatting.Indented);
                 File.WriteAllText(saveFilePath, json);
             }
             catch (Exception e)
             {
-                Logger.Error($"[DataManager] Failed to save labels: {e.Message}");
+                Logger.Error($"[SimpleLabels] Failed to save labels: {e.Message}");
             }
         }
 

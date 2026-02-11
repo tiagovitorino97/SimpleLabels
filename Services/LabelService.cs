@@ -27,10 +27,11 @@ namespace SimpleLabels.Services
         /// <remarks>
         /// Uses mod defaults for color, size, and font when not provided. Applies the physical label
         /// only if <paramref name="gameObject"/> is non-null and <paramref name="labelText"/> is non-empty.
-        /// Always notifies the network layer so multiplayer clients receive the new label.
+        /// When <paramref name="fromNetwork"/> is false, notifies the network so other players receive the label.
+        /// When true (sync from host), does NOT notify to avoid echo loops (client must not overwrite host with its view).
         /// </remarks>
         public static void CreateLabel(string guid, GameObject gameObject, string labelText = "", 
-            string labelColor = null, int? labelSize = null, int? fontSize = null, string fontColor = null)
+            string labelColor = null, int? labelSize = null, int? fontSize = null, string fontColor = null, bool fromNetwork = false)
         {
             if (string.IsNullOrEmpty(guid))
             {
@@ -53,8 +54,8 @@ namespace SimpleLabels.Services
                 LabelApplier.ApplyOrUpdateLabel(guid);
             }
 
-            // Notify network of change (if this is a local change, not from network)
-            LabelNetworkManager.NotifyLabelChanged(guid);
+            if (!fromNetwork && !string.IsNullOrEmpty(labelText))
+                LabelNetworkManager.NotifyLabelChanged(guid);
         }
 
         /// <summary>
@@ -108,6 +109,38 @@ namespace SimpleLabels.Services
                 return;
 
             UpdateLabel(guid, newLabelText: "");
+        }
+
+        /// <summary>
+        /// Finds and binds the GameObject for a tracked entity. Used when the host creates a label
+        /// from a client and the entity exists in the scene but was not yet bound.
+        /// </summary>
+        public static void BindGameObjectForGuid(string guid)
+        {
+            if (string.IsNullOrEmpty(guid)) return;
+            var entityData = LabelTracker.GetEntityData(guid);
+            if (entityData == null || entityData.GameObject != null) return;
+
+            var gridItems = UnityEngine.Object.FindObjectsOfType<GridItem>();
+            foreach (var item in gridItems)
+            {
+                if (item == null) continue;
+                if (item.GUID.ToString() == guid)
+                {
+                    BindGameObject(guid, item.gameObject);
+                    return;
+                }
+            }
+            var surfaceItems = UnityEngine.Object.FindObjectsOfType<SurfaceItem>();
+            foreach (var item in surfaceItems)
+            {
+                if (item == null) continue;
+                if (item.GUID.ToString() == guid)
+                {
+                    BindGameObject(guid, item.gameObject);
+                    return;
+                }
+            }
         }
 
         /// <summary>
@@ -185,7 +218,8 @@ namespace SimpleLabels.Services
                         labelColor: networkedEntityData.LabelColor,
                         labelSize: networkedEntityData.LabelSize,
                         fontSize: networkedEntityData.FontSize,
-                        fontColor: networkedEntityData.FontColor);
+                        fontColor: networkedEntityData.FontColor,
+                        fromNetwork: true);
                 }
             }
 
@@ -233,10 +267,7 @@ namespace SimpleLabels.Services
                 if (entityData == null) continue;
 
                 if (entityData.GameObject == null && guidToGo.TryGetValue(guid, out var go))
-                {
-                    Logger.Msg($"[LabelService] Binding GameObject for synced label: GUID={guid}");
                     BindGameObject(guid, go);
-                }
                 else if (entityData.GameObject != null && !string.IsNullOrEmpty(entityData.LabelText))
                 {
                     LabelApplier.ApplyOrUpdateLabel(guid);

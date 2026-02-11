@@ -8,7 +8,7 @@ MelonLoader mod for **Schedule I** that adds custom text labels to storage units
 - **Clipboard integration** – Labels show on the clipboard view for an at-a-glance overview of your production line.
 - **Per-save storage** – Labels are stored per save in `{SaveFolder}/SimpleLabels/Labels.json`; no cross-save mixing.
 - **Color customization** – Optional label colors with auto-color based on item contents.
-- **Multiplayer** – Optional label syncing between players (requires [SteamNetworkLib](https://www.nexusmods.com/schedule1/mods/1396) in UserLibs).
+- **Multiplayer** – Bidirectional label syncing between host and clients (requires [SteamNetworkLib](https://www.nexusmods.com/schedule1/mods/1396) in UserLibs).
 - **Mod Manager** – Settings manageable via [Mod Manager & Phone App](https://www.nexusmods.com/schedule1/mods/397) or MelonPreferences.
 
 ## Requirements
@@ -28,19 +28,6 @@ MelonLoader mod for **Schedule I** that adds custom text labels to storage units
 
 Multiplayer: install SteamNetworkLib and put `SteamNetworkLib-IL2Cpp.dll` in **UserLibs** (see link above).
 
-
-## Project structure
-
-```
-SimpleLabels/
-├── LabelMod.cs           # MelonMod entry, scene lifecycle, save hook
-├── Data/                 # LabelDataManager, SavePathResolver, LabelNetworkManager, SteamNetworkBridge
-├── Patches/              # Clipboard, Loader, Station, Storage patches
-├── Services/             # LabelService
-├── Settings/             # ModSettings, ColorPicker, ModManagerIntegration
-├── UI/                   # GUIManager, InputFieldManager, LabelApplier, LabelPrefabManager
-└── Utils/                # Logger, SpriteManager, DevUtils
-```
 
 ## Links
 

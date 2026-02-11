@@ -26,6 +26,7 @@ namespace SimpleLabels;
 public class LabelMod : MelonMod
 {
     private static string _previousSceneName = string.Empty;
+    private static UnityAction _saveLabelsCallback;
 
     /// <summary>
     /// Sets up settings, loads Labels.json, and initializes Steam network. Runs once at mod load.
@@ -33,19 +34,16 @@ public class LabelMod : MelonMod
     public override void OnInitializeMelon()
     {
         base.OnInitializeMelon();
-        MelonLogger.Msg("[Mod] Initializing SimpleLabels mod...");
         ModSettings.Initialize();
         LabelDataManager.Initialize();
         LabelNetworkManager.Initialize();
-        Logger.Msg("[Mod] SimpleLabels mod initialized successfully");
+        Logger.Msg("[SimpleLabels] Ready.");
     }
 
     public override void OnDeinitializeMelon()
     {
         LabelNetworkManager.Terminate();
     }
-
-
 
     public override void OnSceneWasLoaded(int buildIndex, string sceneName)
     {
@@ -69,15 +67,16 @@ public class LabelMod : MelonMod
 
     private static void ActivateMod()
     {
-        Logger.Msg("[Mod] Activating mod in Main scene");
+        Logger.Msg("[SimpleLabels] Activated.");
         LabelPrefabManager.Initialize();
         InputFieldManager.Initialize();
         // Write labels after the game finishes saving so our file isn't overwritten when the game writes the save folder
-        SaveManager.Instance.onSaveStart.AddListener((UnityAction)(() => MelonCoroutines.Start(SaveLabelsAfterGameSave())));
+        _saveLabelsCallback = (UnityAction)(() => MelonCoroutines.Start(SaveLabelsAfterGameSave()));
+        SaveManager.Instance.onSaveStart.AddListener(_saveLabelsCallback);
 
         if (RegisteredMelons.Any(mod => mod.Info.Name == "Mod Manager & Phone App"))
         {
-            Logger.Msg("[Mod] Mod Manager & Phone App detected, initializing integration");
+            Logger.Msg("[SimpleLabels] Mod Manager integration.");
             ModManagerIntegration.Initialize();
         }
     }
@@ -90,14 +89,13 @@ public class LabelMod : MelonMod
 
     private static void DeactivateMod()
     {
-        Logger.Msg("[Mod] Deactivating mod");
+        if (_saveLabelsCallback != null && SaveManager.Instance != null)
+            SaveManager.Instance.onSaveStart.RemoveListener(_saveLabelsCallback);
         InputFieldManager.Terminate();
         LabelPrefabManager.Terminate();
         LabelApplier.Terminate();
         
         // Reset and reload label data when returning to menu from Main scene
-        // This ensures unsaved labels from the previous session are discarded
-        Logger.Msg("[Mod] Resetting label data for new game session");
         LabelDataManager.Initialize();
     }
 
