@@ -9,133 +9,75 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Services
 {
-    /// <summary>
-    /// Central service for all label operations. This is the single entry point for creating,
-    /// updating, and removing labels. It orchestrates state changes, visual updates, and synchronization.
-    /// </summary>
-    /// <remarks>
-    /// Callers (patches, UI, loaders) should use LabelService rather than LabelTracker or LabelApplier
-    /// directly. The service ensures state, visuals, and network notification stay in sync.
-    /// Use <see cref="UpdateLabelFromNetwork"/> when applying data from multiplayer sync to avoid
-    /// broadcast loops.
-    /// </remarks>
     public static class LabelService
     {
-        /// <summary>
-        /// Creates a new label for an entity. This is the primary way to register entities with the label system.
-        /// </summary>
-        /// <remarks>
-        /// Uses mod defaults for color, size, and font when not provided. Applies the physical label
-        /// only if <paramref name="gameObject"/> is non-null and <paramref name="labelText"/> is non-empty.
-        /// When <paramref name="fromNetwork"/> is false, notifies the network so other players receive the label.
-        /// When true (sync from host), does NOT notify to avoid echo loops (client must not overwrite host with its view).
-        /// </remarks>
-        public static void CreateLabel(string guid, GameObject gameObject, string labelText = "", 
-            string labelColor = null, int? labelSize = null, int? fontSize = null, string fontColor = null, bool fromNetwork = false)
+        public static void CreateLabel(string guid, GameObject gameObject, string text = "", 
+            string color = null, int? size = null, int? fontSize = null, string fontColor = null, bool isSync = false)
         {
-            if (string.IsNullOrEmpty(guid))
-            {
-                Logger.Error("[LabelService] Cannot create label: GUID is empty");
-                return;
-            }
+            if (string.IsNullOrEmpty(guid)) return;
 
-            // Use defaults if not provided
-            var finalLabelColor = labelColor ?? ModSettings.LabelDefaultColor.Value;
-            var finalLabelSize = labelSize ?? ModSettings.LabelDefaultSize.Value;
-            var finalFontSize = fontSize ?? ModSettings.DEFAULT_FONT_SIZE;
-            var finalFontColor = fontColor ?? ModSettings.FontDefaultColor.Value;
+            color ??= ModSettings.LabelDefaultColor.Value;
+            size ??= ModSettings.LabelDefaultSize.Value;
+            fontSize ??= ModSettings.DEFAULT_FONT_SIZE;
+            fontColor ??= ModSettings.FontDefaultColor.Value;
 
-            // Store state
-            LabelTracker.StoreEntity(guid, gameObject, labelText, finalLabelColor, finalLabelSize, finalFontSize, finalFontColor);
+            LabelTracker.StoreEntity(guid, gameObject, text, color, size ?? ModSettings.LabelDefaultSize.Value, fontSize ?? ModSettings.DEFAULT_FONT_SIZE, fontColor);
 
-            // Apply visual representation if we have a GameObject and text
-            if (gameObject != null && !string.IsNullOrEmpty(labelText))
-            {
+            if (gameObject != null && !string.IsNullOrEmpty(text))
                 LabelApplier.ApplyOrUpdateLabel(guid);
-            }
 
-            if (!fromNetwork && !string.IsNullOrEmpty(labelText))
+            if (!isSync && !string.IsNullOrEmpty(text))
                 LabelNetworkManager.NotifyLabelChanged(guid);
         }
 
-        /// <summary>
-        /// Updates an existing label. This is the primary way to modify label properties.
-        /// </summary>
-        /// <remarks>
-        /// Only provided parameters are updated; nulls leave existing values unchanged. Triggers
-        /// <see cref="LabelApplier.ApplyOrUpdateLabel"/> and, when <paramref name="fromNetwork"/> is false,
-        /// notifies the network so other players see the change. Use <paramref name="fromNetwork"/> = true
-        /// when applying sync data to avoid feedback loops.
-        /// </remarks>
-        public static void UpdateLabel(string guid, string newLabelText = null, string newLabelColor = null,
-            int? newLabelSize = null, int? newFontSize = null, string newFontColor = null, bool fromNetwork = false)
+        public static void UpdateLabel(string guid, string text = null, string color = null,
+            int? size = null, int? fontSize = null, string fontColor = null, bool isSync = false)
         {
-            if (string.IsNullOrEmpty(guid))
-            {
-                Logger.Error("[LabelService] Cannot update label: GUID is empty");
-                return;
-            }
+            if (string.IsNullOrEmpty(guid)) return;
 
-            var entityData = LabelTracker.GetEntityData(guid);
-            if (entityData == null)
-            {
-                Logger.Warning($"[LabelService] Cannot update label: Entity {guid} not found");
-                return;
-            }
+            var entity = LabelTracker.GetEntityData(guid);
+            if (entity == null) return;
 
-            // Update state
-            LabelTracker.UpdateEntityData(guid, newLabelText, newLabelColor, newLabelSize, newFontSize, newFontColor);
-
-            // Apply visual representation
+            LabelTracker.UpdateEntityData(guid, text, color, size, fontSize, fontColor);
             LabelApplier.ApplyOrUpdateLabel(guid);
 
-            // Notify network only if this is a local change (not from network sync)
-            if (!fromNetwork)
-            {
+            if (!isSync)
                 LabelNetworkManager.NotifyLabelChanged(guid);
-            }
         }
 
-        /// <summary>
-        /// Removes a label from an entity (clears the text).
-        /// </summary>
-        /// <remarks>
-        /// Implemented as <c>UpdateLabel(guid, newLabelText: "")</c>. The entity remains tracked;
-        /// LabelApplier hides the physical label when text is empty.
-        /// </remarks>
-        public static void RemoveLabel(string guid)
+        public static void RemoveLabel(string guid) => UpdateLabel(guid, text: "");
+
+        public static void BindGameObject(string guid, GameObject go)
         {
-            if (string.IsNullOrEmpty(guid))
-                return;
+            if (string.IsNullOrEmpty(guid) || go == null) return;
 
-            UpdateLabel(guid, newLabelText: "");
+            var entity = LabelTracker.GetEntityData(guid);
+            if (entity == null) return;
+
+            LabelTracker.UpdateGameObjectReference(guid, go);
+
+            if (!string.IsNullOrEmpty(entity.LabelText))
+                LabelApplier.ApplyOrUpdateLabel(guid);
         }
 
-        /// <summary>
-        /// Finds and binds the GameObject for a tracked entity. Used when the host creates a label
-        /// from a client and the entity exists in the scene but was not yet bound.
-        /// </summary>
         public static void BindGameObjectForGuid(string guid)
         {
             if (string.IsNullOrEmpty(guid)) return;
-            var entityData = LabelTracker.GetEntityData(guid);
-            if (entityData == null || entityData.GameObject != null) return;
+            var entity = LabelTracker.GetEntityData(guid);
+            if (entity == null || entity.GameObject != null) return;
 
-            var gridItems = UnityEngine.Object.FindObjectsOfType<GridItem>();
-            foreach (var item in gridItems)
+            foreach (var item in UnityEngine.Object.FindObjectsOfType<GridItem>())
             {
-                if (item == null) continue;
-                if (item.GUID.ToString() == guid)
+                if (item?.GUID.ToString() == guid)
                 {
                     BindGameObject(guid, item.gameObject);
                     return;
                 }
             }
-            var surfaceItems = UnityEngine.Object.FindObjectsOfType<SurfaceItem>();
-            foreach (var item in surfaceItems)
+
+            foreach (var item in UnityEngine.Object.FindObjectsOfType<SurfaceItem>())
             {
-                if (item == null) continue;
-                if (item.GUID.ToString() == guid)
+                if (item?.GUID.ToString() == guid)
                 {
                     BindGameObject(guid, item.gameObject);
                     return;
@@ -143,132 +85,60 @@ namespace SimpleLabels.Services
             }
         }
 
-        /// <summary>
-        /// Binds a GameObject to an existing label entity. Used when entities are loaded/created.
-        /// </summary>
-        /// <remarks>
-        /// Entity must already exist in LabelTracker (e.g. from persistence or network). If the entity
-        /// has label text, the physical label is applied immediately. Call this when builds are placed
-        /// or when syncing from network and GameObjects become available.
-        /// </remarks>
-        public static void BindGameObject(string guid, GameObject gameObject)
+        public static void ApplySync(string guid, string text = null, string color = null,
+            int? size = null, int? fontSize = null, string fontColor = null)
         {
-            if (string.IsNullOrEmpty(guid) || gameObject == null)
-                return;
-
-            var entityData = LabelTracker.GetEntityData(guid);
-            if (entityData == null)
-            {
-                Logger.Warning($"[LabelService] Cannot bind GameObject: Entity {guid} not found");
-                return;
-            }
-
-            // Update state
-            LabelTracker.UpdateGameObjectReference(guid, gameObject);
-
-            // Apply visual if we have text
-            if (!string.IsNullOrEmpty(entityData.LabelText))
-            {
-                LabelApplier.ApplyOrUpdateLabel(guid);
-            }
+            UpdateLabel(guid, text, color, size, fontSize, fontColor, isSync: true);
         }
 
-        /// <summary>
-        /// Updates label from network synchronization. This bypasses network notification to avoid loops.
-        /// </summary>
-        /// <remarks>
-        /// Forwards to <see cref="UpdateLabel"/> with <c>fromNetwork: true</c>. Use only when applying
-        /// data received from the host or other clients; do not use for local player edits.
-        /// </remarks>
-        public static void UpdateLabelFromNetwork(string guid, string newLabelText = null, string newLabelColor = null,
-            int? newLabelSize = null, int? newFontSize = null, string newFontColor = null)
+        public static void ApplyNetworkLabels(Dictionary<string, EntityData> data)
         {
-            UpdateLabel(guid, newLabelText, newLabelColor, newLabelSize, newFontSize, newFontColor, fromNetwork: true);
-        }
-
-        /// <summary>
-        /// Applies all labels from network data during initial sync.
-        /// </summary>
-        /// <remarks>
-        /// Creates entities that do not exist locally and updates existing ones via
-        /// <see cref="UpdateLabelFromNetwork"/>. Does not bind GameObjects; call
-        /// <see cref="BindAllGameObjectsAndApplyLabels"/> afterward to resolve and apply visuals.
-        /// </remarks>
-        public static void ApplyNetworkLabels(Dictionary<string, EntityData> networkedData)
-        {
-            foreach (var kvp in networkedData)
+            foreach (var kvp in data)
             {
                 var guid = kvp.Key;
-                var networkedEntityData = kvp.Value;
-
+                var info = kvp.Value;
                 var existing = LabelTracker.GetEntityData(guid);
+
                 if (existing != null)
                 {
-                    UpdateLabelFromNetwork(guid,
-                        newLabelText: networkedEntityData.LabelText,
-                        newLabelColor: networkedEntityData.LabelColor,
-                        newLabelSize: networkedEntityData.LabelSize,
-                        newFontSize: networkedEntityData.FontSize,
-                        newFontColor: networkedEntityData.FontColor);
+                    ApplySync(guid, info.LabelText, info.LabelColor, info.LabelSize, info.FontSize, info.FontColor);
                 }
                 else
                 {
-                    CreateLabel(guid, null,
-                        labelText: networkedEntityData.LabelText,
-                        labelColor: networkedEntityData.LabelColor,
-                        labelSize: networkedEntityData.LabelSize,
-                        fontSize: networkedEntityData.FontSize,
-                        fontColor: networkedEntityData.FontColor,
-                        fromNetwork: true);
+                    CreateLabel(guid, null, info.LabelText, info.LabelColor, info.LabelSize, info.FontSize, info.FontColor, isSync: true);
                 }
             }
-
-            // Force update all visuals after network sync
             LabelApplier.ForceUpdateAllLabels();
         }
 
-        /// <summary>
-        /// Binds GameObjects for all tracked entities and applies their labels.
-        /// Used when syncing from network to ensure visuals are applied.
-        /// </summary>
-        /// <remarks>
-        /// Scans <see cref="GridItem"/> and <see cref="SurfaceItem"/> in the scene, builds a
-        /// GUID-to-GameObject map, then binds any tracked entity that lacks a GameObject. Also
-        /// re-applies labels for entities that already have GameObjects (e.g. after scene load).
-        /// </remarks>
-        public static void BindAllGameObjectsAndApplyLabels()
+        public static void SyncAll()
         {
-            var gridItems = UnityEngine.Object.FindObjectsOfType<GridItem>();
-            var surfaceItems = UnityEngine.Object.FindObjectsOfType<SurfaceItem>();
+            var map = new Dictionary<string, GameObject>();
 
-            var guidToGo = new Dictionary<string, GameObject>();
-
-            foreach (var item in gridItems)
+            foreach (var item in UnityEngine.Object.FindObjectsOfType<GridItem>())
             {
                 if (item == null) continue;
-                var guid = item.GUID.ToString();
-                if (string.IsNullOrEmpty(guid)) continue;
-                if (!guidToGo.ContainsKey(guid))
-                    guidToGo.Add(guid, item.gameObject);
+                var id = item.GUID.ToString();
+                if (!string.IsNullOrEmpty(id) && !map.ContainsKey(id)) map.Add(id, item.gameObject);
             }
 
-            foreach (var item in surfaceItems)
+            foreach (var item in UnityEngine.Object.FindObjectsOfType<SurfaceItem>())
             {
                 if (item == null) continue;
-                var guid = item.GUID.ToString();
-                if (string.IsNullOrEmpty(guid)) continue;
-                if (!guidToGo.ContainsKey(guid))
-                    guidToGo.Add(guid, item.gameObject);
+                var id = item.GUID.ToString();
+                if (!string.IsNullOrEmpty(id) && !map.ContainsKey(id)) map.Add(id, item.gameObject);
             }
 
             foreach (var guid in LabelTracker.GetAllTrackedGuids())
             {
-                var entityData = LabelTracker.GetEntityData(guid);
-                if (entityData == null) continue;
+                var entity = LabelTracker.GetEntityData(guid);
+                if (entity == null) continue;
 
-                if (entityData.GameObject == null && guidToGo.TryGetValue(guid, out var go))
+                if (entity.GameObject == null && map.TryGetValue(guid, out var go))
+                {
                     BindGameObject(guid, go);
-                else if (entityData.GameObject != null && !string.IsNullOrEmpty(entityData.LabelText))
+                }
+                else if (entity.GameObject != null && !string.IsNullOrEmpty(entity.LabelText))
                 {
                     LabelApplier.ApplyOrUpdateLabel(guid);
                 }

@@ -5,14 +5,6 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Data
 {
-    /// <summary>
-    /// In-memory state store for label entities. Keys entities by GUID and holds text, colors, size, and GameObject refs.
-    /// </summary>
-    /// <remarks>
-    /// Pure state layer: no I/O, no UI, no network. LabelService uses this for state; LabelApplier reads it for visuals.
-    /// Use <see cref="StoreEntity"/> for new entities and <see cref="UpdateEntityData"/> for changes. GetEntityData
-    /// returns the live instance; GetAllEntityData returns a copy (e.g. for network serialization).
-    /// </remarks>
     public static class LabelTracker
     {
         private static string _currentlyManagedEntityGuid;
@@ -25,13 +17,6 @@ namespace SimpleLabels.Data
             _currentlyManagedEntityGuid = null;
         }
 
-        /// <summary>
-        /// Stores a new entity in the state dictionary. Pure state operation - no side effects.
-        /// </summary>
-        /// <remarks>
-        /// Fails if GUID is empty or entity already exists (use <see cref="UpdateEntityData"/> for updates).
-        /// GameObject may be null when creating from network; bind later via <see cref="UpdateGameObjectReference"/>.
-        /// </remarks>
         public static void StoreEntity(string guid, GameObject gameObject, string labelText, string labelColor,
             int labelSize, int fontSize, string fontColor)
         {
@@ -52,13 +37,6 @@ namespace SimpleLabels.Data
             }
         }
 
-        /// <summary>
-        /// Updates entity data in the state dictionary. Pure state operation - no side effects.
-        /// </summary>
-        /// <remarks>
-        /// Only non-null parameters are applied; existing values are left unchanged for omitted params.
-        /// Entity must exist; use <see cref="StoreEntity"/> first. Does not touch GameObject reference.
-        /// </remarks>
         public static void UpdateEntityData(string guid, string newLabelText = null, string newLabelColor = null,
             int? newLabelSize = null, int? newFontSize = null, string newFontColor = null)
         {

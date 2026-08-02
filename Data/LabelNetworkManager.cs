@@ -11,10 +11,6 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Data
 {
-    /// <summary>
-    /// Handles multiplayer sync of labels via SteamNetworkLib. Host owns synced state; clients request and receive updates.
-    /// All SteamNetworkLib usage is isolated in <see cref="SteamNetworkBridge"/> so the mod runs without the DLL (single-player only).
-    /// </summary>
     public class LabelNetworkManager
     {
         private static bool _multiplayerAvailable = false;
@@ -26,7 +22,6 @@ namespace SimpleLabels.Data
         private static bool _clientSyncRetryRunning;
         private static HashSet<object> _knownMembers = new HashSet<object>();
 
-        /// <summary>Whether multiplayer label sync is available (SteamNetworkLib present in UserLibs).</summary>
         public static bool IsMultiplayerAvailable => _multiplayerAvailable;
 
         public static void Initialize()
@@ -169,24 +164,18 @@ namespace SimpleLabels.Data
                 var existing = LabelTracker.GetEntityData(labelData.Guid);
                 if (existing != null)
                 {
-                    LabelService.UpdateLabelFromNetwork(
+                    LabelService.ApplySync(
                         labelData.Guid,
-                        newLabelText: labelData.LabelText,
-                        newLabelColor: labelData.LabelColor,
-                        newLabelSize: labelData.LabelSize,
-                        newFontSize: labelData.FontSize,
-                        newFontColor: labelData.FontColor);
+                        labelData.LabelText,
+                        labelData.LabelColor,
+                        labelData.LabelSize,
+                        labelData.FontSize,
+                        labelData.FontColor);
                 }
                 else
                 {
-                    LabelService.CreateLabel(labelData.Guid, null,
-                        labelText: labelData.LabelText,
-                        labelColor: labelData.LabelColor,
-                        labelSize: labelData.LabelSize,
-                        fontSize: labelData.FontSize,
-                        fontColor: labelData.FontColor,
-                        fromNetwork: true);
-                    // Bind GameObject so the host shows the label visually (entity exists in scene).
+                    LabelService.CreateLabel(labelData.Guid, null, labelData.LabelText, labelData.LabelColor,
+                        labelData.LabelSize, labelData.FontSize, labelData.FontColor, isSync: true);
                     LabelService.BindGameObjectForGuid(labelData.Guid);
                 }
                 NotifyLabelChanged(labelData.Guid);
@@ -223,22 +212,14 @@ namespace SimpleLabels.Data
             var existing = LabelTracker.GetEntityData(newValue.Guid);
             if (existing == null)
             {
-                LabelService.CreateLabel(
-                    newValue.Guid, null,
-                    newValue.LabelText, newValue.LabelColor, newValue.LabelSize,
-                    newValue.FontSize, newValue.FontColor,
-                    fromNetwork: true);
-                LabelService.BindAllGameObjectsAndApplyLabels();
+                LabelService.CreateLabel(newValue.Guid, null, newValue.LabelText, newValue.LabelColor,
+                    newValue.LabelSize, newValue.FontSize, newValue.FontColor, isSync: true);
+                LabelService.SyncAll();
             }
             else
             {
-                LabelService.UpdateLabelFromNetwork(
-                    newValue.Guid,
-                    newLabelText: newValue.LabelText,
-                    newLabelColor: newValue.LabelColor,
-                    newLabelSize: newValue.LabelSize,
-                    newFontSize: newValue.FontSize,
-                    newFontColor: newValue.FontColor);
+                LabelService.ApplySync(newValue.Guid, newValue.LabelText, newValue.LabelColor,
+                    newValue.LabelSize, newValue.FontSize, newValue.FontColor);
             }
         }
 
@@ -306,7 +287,7 @@ namespace SimpleLabels.Data
 
             LabelService.ApplyNetworkLabels(data);
             yield return new WaitForSeconds(1f);
-            LabelService.BindAllGameObjectsAndApplyLabels();
+            LabelService.SyncAll();
             Logger.Msg("[Network] Labels loaded.");
         }
 

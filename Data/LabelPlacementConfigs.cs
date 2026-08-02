@@ -3,18 +3,9 @@ using UnityEngine;
 
 namespace SimpleLabels.Data
 {
-    /// <summary>
-    /// Static config mapping entity type names to label placement(s): local position, rotation, dimensions.
-    /// </summary>
-    /// <remarks>
-    /// Keys match cleaned GameObject names (e.g. StorageRack_Large, MixingStationMk2). LabelApplier
-    /// uses this to parent, position, and scale physical label instances. Multiple placements per
-    /// entity (e.g. storage racks on each face) are supported; EnsureLabelCount matches count to
-    /// placement list length.
-    /// </remarks>
     public class LabelPlacementConfigs
     {
-        public static readonly Dictionary<string, List<LabelPlacement>> LabelPlacementConfigsDictionary =
+        public static readonly Dictionary<string, List<LabelPlacement>> Placements =
             new Dictionary<string, List<LabelPlacement>>
             {
                 {
@@ -478,14 +469,6 @@ namespace SimpleLabels.Data
             };
     }
 
-    /// <summary>
-    /// Local position, euler rotation, and dimensions for a single label instance on an entity.
-    /// </summary>
-    /// <remarks>
-    /// Used by LabelPlacementConfigsDictionary. LabelApplier parents the label to the entity transform,
-    /// sets localPosition/localRotation from this, and uses dimensions for scaling. The <see cref="Rotation"/>
-    /// property returns <see cref="Quaternion.Euler"/> applied to <see cref="EulerRotation"/>.
-    /// </remarks>
     public struct LabelPlacement
     {
         public readonly Vector3 LocalPosition;

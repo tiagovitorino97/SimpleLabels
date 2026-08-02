@@ -15,14 +15,6 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Patches
 {
-    /// <summary>
-    /// Harmony patches for GridItem/SurfaceItem Awake and BuildManager create methods. Binds GameObjects to labels on spawn/load.
-    /// </summary>
-    /// <remarks>
-    /// OnGridItemAwake / OnSurfaceItemAwake run when items are instantiated (including from saves); OnGridItemCreated /
-    /// OnSurfaceItemCreated run when built. All call TryCreateLabelsForEntity: loads persisted data, creates entity
-    /// if missing, binds GameObject, applies label, saves. CleanEntityName is shared with other patches.
-    /// </remarks>
     [HarmonyPatch]
     public class LoaderPatches
     {
@@ -100,7 +92,7 @@ namespace SimpleLabels.Patches
             __instance.onLoadComplete.AddListener(new Action(() =>
             {
                 // Load labels for this save (save folder first, else global with migration)
-                LabelDataManager.LoadLabelsForCurrentSave();
+                LabelDataManager.Load();
                 // Client requests sync (no-op for host). Essential for mid-game join.
                 LabelNetworkManager.RequestLabelSyncFromHost();
                 // Clients load synced labels from network
@@ -123,7 +115,7 @@ namespace SimpleLabels.Patches
             {
                 var cleanName = CleanEntityName(originalName);
 
-                if (!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(cleanName))
+                if (!LabelPlacementConfigs.Placements.ContainsKey(cleanName))
                     return;
 
                 var existing = LabelTracker.GetEntityData(guid);
@@ -150,7 +142,6 @@ namespace SimpleLabels.Patches
             }
         }
 
-        /// <summary>For LabelPlacementConfigs lookup. Strips (Clone), _Built.</summary>
         public static string CleanEntityName(string originalName)
         {
             return originalName
@@ -159,7 +150,6 @@ namespace SimpleLabels.Patches
                 .Trim();
         }
 
-        /// <summary>For InputFieldManager lookup. Strips (Clone), _Built, Mk2, _.</summary>
         public static string CleanGameObjectName(string name)
         {
             return name.Replace("(Clone)", "")

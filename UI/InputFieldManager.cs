@@ -13,73 +13,44 @@ using UnityEngine.UI;
 using Logger = SimpleLabels.Utils.Logger;
 using Il2CppScheduleOne;
 using Il2CppScheduleOne.ItemFramework;
-
-// ReSharper disable All
-
+using Il2CppScheduleOne.UI;
+using Il2CppScheduleOne.UI.Stations;
 
 namespace SimpleLabels.UI
 {
-    /// <summary>
-    /// Manages in-game label input UI: creates input fields per station/storage type, handles submit,
-    /// and processes {itemId} for item name + color.
-    /// </summary>
-    /// <remarks>
-    /// CreateInputFields clones a template per <see cref="SupportedUITypes"/> and wires onSubmit / onValueChanged.
-    /// LabelInputDataLoader loads existing label data when a station opens; submit calls
-    /// <see cref="LabelService.UpdateLabel"/>. Typing <c>{itemId}</c> triggers visual feedback (name + color)
-    /// and stores pending color for submit, since the input text is replaced and no longer contains brackets.
-    /// </remarks>
     public class InputFieldManager
     {
         internal static Dictionary<string, TMP_InputField> InputFields = new Dictionary<string, TMP_InputField>();
         internal static Dictionary<string, TMP_InputField> NumericInputFields = new Dictionary<string, TMP_InputField>();
         internal static Dictionary<string, GameObject> ContainersGameObjects = new Dictionary<string, GameObject>();
         internal static Dictionary<string, Button> ToggleOnOffButtons = new Dictionary<string, Button>();
-        internal static Dictionary<string, TextMeshProUGUI> EntityInicatorNames = new Dictionary<string, TextMeshProUGUI>();
+        internal static Dictionary<string, TextMeshProUGUI> EntityIndicatorNames = new Dictionary<string, TextMeshProUGUI>();
 
         internal static Dictionary<string, Vector2> SupportedUITypes = new Dictionary<string, Vector2>()
         {
-            { "UI/StorageMenu", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/PackagingStation", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/ChemistryStation", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/LabOven", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/BrickPress", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/Cauldron", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/MixingStation", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/DryingRack", new Vector2(0.5f, 0.75f) },
-            { "UI/Stations/MushroomSpawnStation", new Vector2(0.5f, 0.75f) }
+            { "StorageMenu", new Vector2(0.5f, 0.75f) },
+            { "PackagingStation", new Vector2(0.5f, 0.75f) },
+            { "ChemistryStation", new Vector2(0.5f, 0.75f) },
+            { "LabOven", new Vector2(0.5f, 0.75f) },
+            { "BrickPress", new Vector2(0.5f, 0.75f) },
+            { "Cauldron", new Vector2(0.5f, 0.75f) },
+            { "MixingStation", new Vector2(0.5f, 0.75f) },
+            { "DryingRack", new Vector2(0.5f, 0.75f) },
+            { "MushroomSpawnStation", new Vector2(0.5f, 0.75f) }
         };
 
         private static TMP_InputField _currentInputField;
         private static TMP_InputField _currentNumericInputField;
 
-        /// <summary>Sets the currently focused input fields (used when activating with auto-focus).</summary>
         public static void SetCurrentInputFields(TMP_InputField inputField, TMP_InputField numericInputField)
         {
             _currentInputField = inputField;
             _currentNumericInputField = numericInputField;
         }
 
-        /// <summary>
-        /// When user types {itemId}, we replace the input with the item name (visual feedback).
-        /// On Enter, the submitted text has no brackets, so we never detect the item and skip color.
-        /// We store the item-derived color here and use it on submit when the text matches.
-        /// </summary>
-        /// <remarks>
-        /// Set in OnInputTextChangeVisualFeedback when item exists; cleared when no brackets or invalid item.
-        /// OnInputTextSubmit uses these if submitted text equals _pendingItemText so the label gets the color.
-        /// Cleared on submit and in Terminate.
-        /// </remarks>
         private static string _pendingItemColor;
         private static string _pendingItemText;
 
-        /// <summary>
-        /// Setting inputField.text triggers onValueChanged; we'd clear pending. Skip that recursive call.
-        /// </summary>
-        /// <remarks>
-        /// Set true before assigning inputField.text in visual feedback, false after. The ensuing
-        /// onValueChanged run returns early and does not clear _pendingItemColor / _pendingItemText.
-        /// </remarks>
         private static bool _isApplyingItemFeedback;
 
         public static void Initialize()
@@ -121,13 +92,13 @@ namespace SimpleLabels.UI
 
             ToggleOnOffButtons.Clear();
     
-            foreach (var entityName in EntityInicatorNames.Values)
+            foreach (var entityName in EntityIndicatorNames.Values)
             {
                 if (entityName == null) continue;
                 GameObject.Destroy(entityName.gameObject);
             }
     
-            EntityInicatorNames.Clear();
+            EntityIndicatorNames.Clear();
 
             ColorPickerManager.Terminate();
             _currentInputField = null;
@@ -184,7 +155,7 @@ namespace SimpleLabels.UI
 
         public static TextMeshProUGUI GetEntityNameIndicator(string gameObjectName)
         {
-            return FindByKey(EntityInicatorNames, gameObjectName);
+            return FindByKey(EntityIndicatorNames, gameObjectName);
         }
 
         private static T FindByKey<T>(Dictionary<string, T> dictionary, string key)
@@ -197,10 +168,10 @@ namespace SimpleLabels.UI
         {
             foreach (var uiType in SupportedUITypes)
             {
-                var ui = GameObject.Find(uiType.Key);
+                var ui = GetSupportedUI(uiType.Key);
                 if (ui == null)
                 {
-                    Logger.Error($"Couldn't find {uiType} GameObject.");
+                    Logger.Error($"Couldn't find the {uiType.Key} UI instance.");
                     continue;
                 }
 
@@ -223,6 +194,25 @@ namespace SimpleLabels.UI
                 ColorPickerManager.CreateColorPicker(InputFields[uiType.Key], ColorPickerType.Label);
                 ColorPickerManager.CreateColorPicker(InputFields[uiType.Key], ColorPickerType.Font);
             }
+        }
+
+        // The 0.4.6 UI hierarchy no longer exposes the old UI/Stations/... paths.
+        // Resolve the actual panel instances instead of relying on scene object names.
+        private static GameObject GetSupportedUI(string key)
+        {
+            return key switch
+            {
+                "StorageMenu" => StorageMenu.Instance?.gameObject,
+                "PackagingStation" => PackagingStationCanvas.Instance?.gameObject,
+                "ChemistryStation" => ChemistryStationInterface.Instance?.gameObject,
+                "LabOven" => LabOvenCanvas.Instance?.gameObject,
+                "BrickPress" => BrickPressCanvas.Instance?.gameObject,
+                "Cauldron" => CauldronInterface.Instance?.gameObject,
+                "MixingStation" => MixingStationInterface.Instance?.gameObject,
+                "DryingRack" => DryingRackInterface.Instance?.gameObject,
+                "MushroomSpawnStation" => MushroomSpawnStationInterface.Instance?.gameObject,
+                _ => null
+            };
         }
 
         private static TMP_InputField CreateInputField(GameObject parent, string namePrefix)
@@ -351,13 +341,11 @@ namespace SimpleLabels.UI
             }));
         }
 
-        // Called on every keystroke for real-time visual feedback (curly bracket processing)
         private static void OnInputTextChangeVisualFeedback(string text, TMP_InputField inputField)
         {
             if (_isApplyingItemFeedback)
                 return;
 
-            // Reset input field state
             if (!DevUtils.IsStorageOrStationOpen())
             {
                 inputField.DeactivateInputField();
@@ -365,7 +353,6 @@ namespace SimpleLabels.UI
                 return;
             }
 
-            // Process text in curly brackets for special formatting (visual feedback only)
             string textInBrackets = GetFirstTextInCurlyBrackets(text);
             if (string.IsNullOrEmpty(textInBrackets))
             {
@@ -402,7 +389,6 @@ namespace SimpleLabels.UI
             }
         }
 
-        // Called only when user presses Enter, this is where we update the label
         private static void OnInputTextSubmit(string text, TMP_InputField inputField)
         {
             // Reset input field state
@@ -415,7 +401,6 @@ namespace SimpleLabels.UI
                 return;
             }
 
-            // Get the entity GUID
             string entityGuid = LabelTracker.GetCurrentlyManagedEntityGuid();
             if (string.IsNullOrEmpty(entityGuid))
             {
@@ -424,7 +409,6 @@ namespace SimpleLabels.UI
                 return;
             }
 
-            // Process text in curly brackets for special formatting
             string textInBrackets = GetFirstTextInCurlyBrackets(text);
             string finalText = text;
             string finalColor = null;
@@ -446,41 +430,28 @@ namespace SimpleLabels.UI
                     finalText = cleanedText;
                 }
 
-                // Update text in input field to show the cleaned version
                 inputField.text = finalText;
-
-                // Apply color to the input field
                 inputField.GetComponent<Image>().color = spriteColor;
             }
             else if (_pendingItemColor != null && _pendingItemText != null && _pendingItemText == finalText)
             {
-                // Visual feedback replaced input with item name; submitted text has no {itemId}. Use stored color.
                 finalColor = _pendingItemColor;
             }
 
             _pendingItemColor = null;
             _pendingItemText = null;
 
-            LabelService.UpdateLabel(
-                guid: entityGuid, 
-                newLabelText: finalText,
-                newLabelColor: finalColor
-            );
+            LabelService.UpdateLabel(entityGuid, text: finalText, color: finalColor);
         }
 
         private static void ValidateNumericRange(string text, TMP_InputField inputField)
         {
-            // If empty, don't process
             if (string.IsNullOrEmpty(text))
                 return;
 
-            // Parse the input
             if (int.TryParse(text, out int value))
             {
-                // Ensure value is between 1 and 10
                 int clampedValue = Mathf.Clamp(value, 1, 30);
-
-                // If the value was changed, update the field
                 if (value != clampedValue)
                 {
                     inputField.text = clampedValue.ToString();
@@ -488,7 +459,6 @@ namespace SimpleLabels.UI
             }
             else
             {
-                // If not a valid integer, set to 1
                 inputField.text = "1";
             }
         }
@@ -505,7 +475,7 @@ namespace SimpleLabels.UI
                 return;
 
             var guid = LabelTracker.GetCurrentlyManagedEntityGuid();
-            LabelService.UpdateLabel(guid: guid, newLabelSize: value);
+            LabelService.UpdateLabel(guid, size: value);
         }
 
         private static GameObject CreateTextArea(Transform parent)
@@ -577,11 +547,7 @@ namespace SimpleLabels.UI
 
         public static string GetFirstTextInCurlyBrackets(string text)
         {
-            // The regex pattern \{([^}]*)\} looks for:
-            // \{       - a literal opening curly bracket
-            // ([^}]*) - a capturing group that matches any character except a closing curly bracket, zero or more times
-            // \}       - a literal closing curly bracket
-            // This pattern specifically avoids matching across nested curly brackets
+            // Extracts {itemId} from text
             Match match = Regex.Match(text, @"\{([^}]*)\}");
 
             if (match.Success)

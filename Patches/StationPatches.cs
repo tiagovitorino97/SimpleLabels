@@ -9,90 +9,83 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Patches
 {
-    /// <summary>
-    /// Harmony patches for station canvases (Packaging, DryingRack, BrickPress, Cauldron, LabOven, Mixing, etc.). Load label UI on open.
-    /// </summary>
-    /// <remarks>
-    /// Each nested class patches a canvas Open/SetIsOpen. When open, HandleStationOpen calls LabelInputDataLoader.LoadLabelData
-    /// with the station GUID, GameObject, and display name. Stations use the station GameObject as the input container.
-    /// </remarks>
     public class StationPatches
     {
-        private static void HandleStationOpen(GridItem station, string stationType)
+        private static void HandleStationOpen(GridItem station, string stationType, string inputUIKey)
         {
             var stationGuid = station.GUID.ToString();
             var stationGameObject = station.gameObject;
 
-            LabelInputDataLoader.LoadLabelData(stationGuid, stationGameObject, stationGameObject, stationType);
+            LabelInputDataLoader.LoadLabelData(stationGuid, stationGameObject, inputUIKey, stationType);
         }
 
-        [HarmonyPatch(typeof(PackagingStationCanvas), nameof(PackagingStationCanvas.SetIsOpen))]
+        [HarmonyPatch(typeof(PackagingStationCanvas), nameof(PackagingStationCanvas.Open))]
         private static class PackagingStationPatch
         {
             [HarmonyPostfix]
-            public static void Postfix(PackagingStation station, bool open)
+            public static void Postfix(PackagingStation station)
             {
-                if (open) HandleStationOpen(station, "Packaging Station");
+                HandleStationOpen(station, "Packaging Station", "PackagingStation");
             }
         }
 
-        [HarmonyPatch(typeof(DryingRackCanvas), nameof(DryingRackCanvas.SetIsOpen))]
+        [HarmonyPatch(typeof(DryingRackInterface), nameof(DryingRackInterface.Open))]
         private static class DryingRackPatch
         {
             [HarmonyPostfix]
-            public static void Postfix(DryingRack rack, bool open)
+            public static void Postfix(DryingRack rack)
             {
-                if (open) HandleStationOpen(rack, "Drying Rack");
+                HandleStationOpen(rack, "Drying Rack", "DryingRack");
             }
         }
 
-        [HarmonyPatch(typeof(BrickPressCanvas), nameof(BrickPressCanvas.SetIsOpen))]
+        [HarmonyPatch(typeof(BrickPressCanvas), nameof(BrickPressCanvas.Open))]
         private static class BrickPressPatch
         {
             [HarmonyPostfix]
-            public static void Postfix(BrickPress press, bool open)
+            public static void Postfix(BrickPress press)
             {
-                if (open) HandleStationOpen(press, "Brick Press");
+                HandleStationOpen(press, "Brick Press", "BrickPress");
             }
         }
 
-        [HarmonyPatch(typeof(CauldronCanvas), nameof(CauldronCanvas.SetIsOpen))]
+        [HarmonyPatch(typeof(CauldronInterface), nameof(CauldronInterface.Open))]
         private static class CauldronPatch
         {
             [HarmonyPostfix]
-            public static void Postfix(Cauldron cauldron, bool open)
+            public static void Postfix(Cauldron cauldron)
             {
-                if (open) HandleStationOpen(cauldron, "Cauldron");
+                HandleStationOpen(cauldron, "Cauldron", "Cauldron");
             }
         }
 
-        [HarmonyPatch(typeof(LabOvenCanvas), nameof(LabOvenCanvas.SetIsOpen))]
+        [HarmonyPatch(typeof(LabOvenCanvas), nameof(LabOvenCanvas.Open))]
         private static class LabOvenPatch
         {
             [HarmonyPostfix]
-            public static void Postfix(LabOven oven, bool open, bool removeUI)
+            public static void Postfix(LabOven oven)
             {
-                if (open) HandleStationOpen(oven, "Lab Oven");
+                HandleStationOpen(oven, "Lab Oven", "LabOven");
             }
         }
 
-        [HarmonyPatch(typeof(MixingStationCanvas), nameof(MixingStationCanvas.Open))]
+        [HarmonyPatch(typeof(MixingStationInterface), nameof(MixingStationInterface.Open))]
         private static class MixingStationPatch
         {
             [HarmonyPostfix]
-            public static void Postfix(MixingStationCanvas __instance, MixingStation station)
+            public static void Postfix(MixingStationInterface __instance, MixingStation station)
             {
-                HandleStationOpen(station, "Mixing Station");
+                HandleStationOpen(station, "Mixing Station", "MixingStation");
             }
         }
 
-        [HarmonyPatch(typeof(ChemistryStationCanvas), nameof(ChemistryStationCanvas.Open))]
+        [HarmonyPatch(typeof(ChemistryStationInterface), nameof(ChemistryStationInterface.Open))]
         private static class ChemistryStationPatch
         {
             [HarmonyPostfix]
-            public static void Postfix(ChemistryStationCanvas __instance, ChemistryStation station)
+            public static void Postfix(ChemistryStationInterface __instance, ChemistryStation station)
             {
-                HandleStationOpen(station, "Chemistry Station");
+                HandleStationOpen(station, "Chemistry Station", "ChemistryStation");
             }
         }
 
@@ -102,7 +95,7 @@ namespace SimpleLabels.Patches
             [HarmonyPostfix]
             public static void Postfix(MushroomSpawnStationInterface __instance, MushroomSpawnStation station)
             {
-                HandleStationOpen(station, "Mushroom Spawn Station");
+                HandleStationOpen(station, "Mushroom Spawn Station", "MushroomSpawnStation");
             }
         }
     }

@@ -13,24 +13,12 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.UI
 {
-    /// <summary>
-    /// Which color the picker targets: label (paper) or font (text).
-    /// </summary>
     public enum ColorPickerType
     {
         Label,
         Font
     }
 
-    /// <summary>
-    /// Builds and manages color-picker UI (grid of preset buttons) for label and font colors.
-    /// </summary>
-    /// <remarks>
-    /// CreateColorPicker instantiates a picker per input field and type (Label/Font), using
-    /// ModSettings.LabelColorOptionsDictionary or FontColorOptionsDictionary. OnColorSelected
-    /// updates the input Image color, persists via LabelService.UpdateLabel, and syncs to network.
-    /// Terminate clears picker references when the mod shuts down.
-    /// </remarks>
     public static class ColorPickerManager
     {
         public static Dictionary<TMP_InputField, GameObject> LabelColorPickers =
@@ -114,12 +102,12 @@ namespace SimpleLabels.UI
             if (type == ColorPickerType.Label)
             {
                 inputField.GetComponent<Image>().color = selectedColor;
-                LabelService.UpdateLabel(guid, newLabelColor: colorHex);
+                LabelService.UpdateLabel(guid, color: colorHex);
             }
             else
             {
                 inputField.GetComponentInChildren<TextMeshProUGUI>().color = selectedColor;
-                LabelService.UpdateLabel(guid, newFontColor: colorHex);
+                LabelService.UpdateLabel(guid, fontColor: colorHex);
             }
         }
 

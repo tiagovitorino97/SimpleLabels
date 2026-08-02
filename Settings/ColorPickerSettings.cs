@@ -8,15 +8,7 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Settings
 {
-    /// <summary>
-    /// Populates ModSettings Label/Font color picker dictionaries with default preset colors.
-    /// </summary>
-    /// <remarks>
-    /// Initialize creates LabelColorOptionsDictionary and FontColorOptionsDictionary, then
-    /// CreateDefaultColorOptions adds "Color 1".."Color 9" entries with fixed hex values.
-    /// OnColorChanged validates hex and updates ColorPickerManager buttons when settings change.
-    /// </remarks>
-    public class ColorPickerSettings : MelonMod
+    public static class ColorPickerSettings
     {
         public static string[] colorNames =
         {
@@ -36,46 +28,44 @@ namespace SimpleLabels.Settings
 
             Color[] defaultLabelColors =
             {
-                new Color(0.30f, 0.45f, 0.65f), // Muted Teal-Blue
-                new Color(0.40f, 0.60f, 0.35f), // Desaturated Green
-                new Color(0.70f, 0.55f, 0.30f), // Warm Ochre
-                new Color(0.65f, 0.40f, 0.40f), // Soft Terracotta
-                new Color(0.40f, 0.35f, 0.60f), // Greyish Purple
-                new Color(0.55f, 0.60f, 0.60f), // Cool Grey
-                new Color(0.30f, 0.65f, 0.55f), // Blue-Green
-                new Color(0.80f, 0.70f, 0.50f), // Muted Gold
-                Color.white                     // Standard background - must be white
+                new Color(0.30f, 0.45f, 0.65f),
+                new Color(0.40f, 0.60f, 0.35f),
+                new Color(0.70f, 0.55f, 0.30f),
+                new Color(0.65f, 0.40f, 0.40f),
+                new Color(0.40f, 0.35f, 0.60f),
+                new Color(0.55f, 0.60f, 0.60f),
+                new Color(0.30f, 0.65f, 0.55f),
+                new Color(0.80f, 0.70f, 0.50f),
+                Color.white
             };
 
             Color[] defaultFontColors =
             {
-                new Color(0.85f, 0.85f, 0.30f), // Mustard Yellow
-                new Color(0.30f, 0.70f, 0.30f), // Medium Green
-                new Color(0.80f, 0.40f, 0.20f), // Burnt Orange
-                new Color(0.60f, 0.30f, 0.60f), // Medium Purple
-                new Color(0.30f, 0.50f, 0.70f), // Cerulean Blue
-                new Color(0.75f, 0.75f, 0.75f), // Light Grey
-                new Color(0.20f, 0.25f, 0.40f), // Dark Slate Blue
-                new Color(0.50f, 0.30f, 0.20f), // Dark Brown
-                Color.black                     // Standard font - must be black
+                new Color(0.85f, 0.85f, 0.30f),
+                new Color(0.30f, 0.70f, 0.30f),
+                new Color(0.80f, 0.40f, 0.20f),
+                new Color(0.60f, 0.30f, 0.60f),
+                new Color(0.30f, 0.50f, 0.70f),
+                new Color(0.75f, 0.75f, 0.75f),
+                new Color(0.20f, 0.25f, 0.40f),
+                new Color(0.50f, 0.30f, 0.20f),
+                Color.black
             };
 
             for (var i = 0; i < colorNames.Length; i++)
             {
-                // Create entry for Label Color
                 var labelEntry = ModSettings.LabelColorPickerCategory.CreateEntry(colorNames[i],
                     "#" + ColorUtility.ToHtmlStringRGB(defaultLabelColors[i]));
                 var colorIndex = i;
                 labelEntry.OnEntryValueChanged.Subscribe((oldVal, newVal) =>
-                    OnColorChanged(colorIndex, "Label", oldVal, newVal)); // Added "Label"
+                    OnColorChanged(colorIndex, "Label", oldVal, newVal));
                 ModSettings.LabelColorOptionsDictionary.Add(colorNames[i], labelEntry);
 
-                // Create entry for Font Color
                 var fontEntry = ModSettings.FontColorPickerCategory.CreateEntry(colorNames[i],
                     "#" + ColorUtility.ToHtmlStringRGB(defaultFontColors[i]));
                 var fontColorIndex = i;
                 fontEntry.OnEntryValueChanged.Subscribe((oldVal, newVal) =>
-                    OnColorChanged(fontColorIndex, "Font", oldVal, newVal)); // Added "Font"
+                    OnColorChanged(fontColorIndex, "Font", oldVal, newVal));
                 ModSettings.FontColorOptionsDictionary.Add(colorNames[i], fontEntry);
             }
 

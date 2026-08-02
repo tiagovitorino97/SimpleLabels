@@ -4,9 +4,6 @@ using UnityEngine;
 
 namespace SimpleLabels.Utils
 {
-    /// <summary>
-    /// Compares Color32 with tolerance for grouping similar colors (e.g. when sampling from item icons).
-    /// </summary>
     public class ColorComparer : IEqualityComparer<Color32>
     {
         private const int ColorTolerance = 15;

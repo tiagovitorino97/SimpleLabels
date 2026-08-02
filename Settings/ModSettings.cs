@@ -6,14 +6,6 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Settings
 {
-    /// <summary>
-    /// MelonLoader preferences for SimpleLabels: general, clipboard, label/font colors, and debug.
-    /// </summary>
-    /// <remarks>
-    /// Initialize creates categories and entries, wires OnEntryValueChanged for ShowInput, AutoFocusInput,
-    /// clipboard toggles, etc. LabelColorOptionsDictionary and FontColorOptionsDictionary drive
-    /// ColorPickerManager presets. ColorPickerSettings.Initialize fills those from legacy or defaults.
-    /// </remarks>
     public class ModSettings
     {
         //Categories
@@ -73,20 +65,15 @@ namespace SimpleLabels.Settings
         {
             GeneralCategory = MelonPreferences.CreateCategory("SimpleLabels_01_General", "General");
             ShowInput = GeneralCategory.CreateEntry("Show input", true);
-            ShowInput.OnEntryValueChanged.Subscribe(OnShowInputChanged);
             AutoFocusInput = GeneralCategory.CreateEntry("Auto focus input", true);
-            AutoFocusInput.OnEntryValueChanged.Subscribe(OnAutoFocusInputChanged);
         }
 
         private static void CreateClipboardSettings()
         {
             ClipboardCategory = MelonPreferences.CreateCategory("SimpleLabels_02_Clipboard", "Clipboard");
             ShowClipboardRoutes = ClipboardCategory.CreateEntry("Show routes", true);
-            ShowClipboardRoutes.OnEntryValueChanged.Subscribe(OnShowClipboardRoutesChanged);
             ShowClipboardStations = ClipboardCategory.CreateEntry("Show stations", true);
-            ShowClipboardStations.OnEntryValueChanged.Subscribe(OnShowClipboardStationsChanged);
             ShowClipboardStationsOutput = ClipboardCategory.CreateEntry("Show stations output", true);
-            ShowClipboardStationsOutput.OnEntryValueChanged.Subscribe(OnShowClipboardStationsOutputChanged);
         }
 
         private static void CreateLabelColorPickerSettings()
@@ -94,7 +81,6 @@ namespace SimpleLabels.Settings
             LabelColorPickerCategory =
                 MelonPreferences.CreateCategory("SimpleLabels_03_ColorPicker", "Label Color Picker");
             AutomaticallySetLabelColorOptions = LabelColorPickerCategory.CreateEntry("Auto-detect Colors from Stored Items", false);
-            AutomaticallySetLabelColorOptions.OnEntryValueChanged.Subscribe(OnAutomaticallySetLabelColorOptionsChanged);
         }
 
         private static void CreateFontColorPickerSettings()
@@ -125,32 +111,6 @@ namespace SimpleLabels.Settings
         {
             DebugCategory = MelonPreferences.CreateCategory("SimpleLabels_07_Debug", "Debug");
             ShowDebug = DebugCategory.CreateEntry("Show console debug", false);
-            ShowDebug.OnEntryValueChanged.Subscribe(OnShowDebugChanged);
-        }
-
-        private static void OnShowInputChanged(bool oldValue, bool newValue)
-        {
-            ShowInput.Value = newValue;
-        }
-
-        private static void OnAutoFocusInputChanged(bool oldValue, bool newValue)
-        {
-            AutoFocusInput.Value = newValue;
-        }
-
-        private static void OnShowClipboardRoutesChanged(bool oldValue, bool newValue)
-        {
-            ShowClipboardRoutes.Value = newValue;
-        }
-
-        private static void OnShowClipboardStationsChanged(bool oldValue, bool newValue)
-        {
-            ShowClipboardStations.Value = newValue;
-        }
-
-        private static void OnShowClipboardStationsOutputChanged(bool oldValue, bool newValue)
-        {
-            ShowClipboardStationsOutput.Value = newValue;
         }
 
         private static void OnLabelDefaultSizeChanged(int oldValue, int newValue)
@@ -162,20 +122,10 @@ namespace SimpleLabels.Settings
         {
             CheckCorrectFormatAndUpdate(newValue, LabelDefaultColor);
         }
-        
-        private static void OnAutomaticallySetLabelColorOptionsChanged(bool oldValue, bool newValue)
-        {
-            AutomaticallySetLabelColorOptions.Value = newValue;
-        }
-        
+
         private static void OnFontDefaultColorChanged(string oldValue, string newValue)
         {
             CheckCorrectFormatAndUpdate(newValue, FontDefaultColor);
-        }
-
-        private static void OnShowDebugChanged(bool oldValue, bool newValue)
-        {
-            ShowDebug.Value = newValue;
         }
 
         private static void CheckCorrectFormatAndUpdate(string newValue, MelonPreferences_Entry<string> entry)

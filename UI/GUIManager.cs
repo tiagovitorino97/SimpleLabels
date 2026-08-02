@@ -8,25 +8,10 @@ using UnityEngine.UI;
 
 namespace SimpleLabels.UI
 {
-    /// <summary>
-    /// Builds the label input GUI: container, entity name text, indicator labels, and structure for input fields.
-    /// </summary>
-    /// <remarks>
-    /// InitializeGUI creates a container at the given anchor, adds "Entity Name", "Name:", "Size:", "Label Color:",
-    /// "Font Color:" indicators, and returns the container. InputFieldManager attaches actual input fields to
-    /// this structure. Used by CreateInputFields when setting up per-station-type UI.
-    /// </remarks>
     public class GUIManager
     {
         public static Image ToggleButtonBackground;
-        
-        /// <summary>
-        /// Creates the label GUI container and indicator texts for the given parent and name prefix.
-        /// </summary>
-        /// <remarks>
-        /// Extracts name prefix from path (after last '/'). Container uses UIBigSprite, 700x200. Registers
-        /// entity name text in InputFieldManager.EntityInicatorNames for the prefix.
-        /// </remarks>
+
         public static GameObject InitializeGUI(GameObject parent, Vector2 anchorPosition, string namePrefix)
         {
             namePrefix = ExtractNamePrefix(namePrefix);
@@ -82,7 +67,7 @@ namespace SimpleLabels.UI
             text.overflowMode = TextOverflowModes.Overflow;
             text.margin = new Vector4(15, 10, 0, 0);
             
-            InputFieldManager.EntityInicatorNames.Add(namePrefix, text);
+            InputFieldManager.EntityIndicatorNames.Add(namePrefix, text);
             
             var rectTransform = textObject.GetComponent<RectTransform>();
             rectTransform.anchorMin = new Vector2(0.5f, 0.5f);

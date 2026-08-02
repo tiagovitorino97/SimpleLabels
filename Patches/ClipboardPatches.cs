@@ -11,14 +11,6 @@ using Logger = SimpleLabels.Utils.Logger;
 
 namespace SimpleLabels.Patches
 {
-    /// <summary>
-    /// Harmony patches for clipboard UI (RouteListFieldUI, ObjectListFieldUI, ObjectFieldUI). Show custom labels in route/object lists.
-    /// </summary>
-    /// <remarks>
-    /// OnRouteListRefresh updates Source/Label and Destination/Label with LabelTracker text for route GUIDs.
-    /// OnObjectListRefresh and OnObjectFieldRefresh do the same for station/object lists. Gated by
-    /// ModSettings.ShowClipboardRoutes, ShowClipboardStations, ShowClipboardStationsOutput.
-    /// </remarks>
     [HarmonyPatch]
     public class ClipboardPatches
     {

@@ -15,38 +15,27 @@ using UnityEngine;
 
 namespace SimpleLabels.Patches
 {
-    /// <summary>
-    /// Harmony patches for StorageMenu.Open. Loads label data into the input UI and updates color pickers when storage is opened.
-    /// </summary>
-    /// <remarks>
-    /// OnStorageOpened runs after Open(StorageEntity). Skips if entity type has no placement config. Loads label data
-    /// via LabelInputDataLoader, updates color pickers, and optionally sets picker colors from stored items
-    /// (AutomaticallySetLabelColorOptions). GetStorageGuid resolves GUID from StorageEntity for persistence.
-    /// </remarks>
     [HarmonyPatch(typeof(StorageMenu))]
     public class StoragePatches
     {
-        [HarmonyPatch(typeof(StorageMenu), nameof(StorageMenu.Open), typeof(StorageEntity))]
+        [HarmonyPatch(typeof(StorageMenu), nameof(StorageMenu.Open),
+            new[] { typeof(StorageEntity), typeof(Il2CppSystem.Action) })]
         [HarmonyPostfix]
         public static void OnStorageOpened(StorageMenu __instance, StorageEntity entity)
         {
             var openedStorageEntityName = LoaderPatches.CleanEntityName(__instance.OpenedStorageEntity.name);
-            if (!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(openedStorageEntityName))
+            if (!LabelPlacementConfigs.Placements.ContainsKey(openedStorageEntityName))
                 return;
             
-            var inputGameObject = __instance.gameObject;
             var storageGameObject = entity.gameObject;
             var storageGuid = GetStorageGuid(entity);
             var storageEntityName = entity.StorageEntityName;
 
-            var inputGameObjectName = LoaderPatches.CleanGameObjectName(inputGameObject.name);
-            InputFieldManager.DeactivateInputField(inputGameObjectName);
+            InputFieldManager.DeactivateInputField("StorageMenu");
 
-            LabelInputDataLoader.LoadLabelData(storageGuid, storageGameObject, inputGameObject, storageEntityName);
+            LabelInputDataLoader.LoadLabelData(storageGuid, storageGameObject, "StorageMenu", storageEntityName);
 
             ColorPickerManager.UpdateAllColorPickers(ColorPickerType.Label);
-
-            // Set temporary colors based on stored items
             UpdateColorPickersFromStorageItems(entity);
         }
 
@@ -99,14 +88,14 @@ namespace SimpleLabels.Patches
         {
             private static IEnumerable<MethodBase> TargetMethods()
             {
-                yield return typeof(StorageMenu).GetMethod(nameof(StorageMenu.Open), new[] { typeof(StorageEntity) });
+                // Schedule I 0.4.6 added an on-close callback to every StorageMenu.Open overload.
+                // Do not yield null: Harmony treats that as a fatal patching error.
                 yield return typeof(StorageMenu).GetMethod(nameof(StorageMenu.Open),
-                    new[] { typeof(IItemSlotOwner), typeof(string), typeof(string) });
+                    new[] { typeof(StorageEntity), typeof(Il2CppSystem.Action) });
                 yield return typeof(StorageMenu).GetMethod(nameof(StorageMenu.Open),
-                    new[]
-                    {
-                        typeof(string), typeof(string), typeof(IItemSlotOwner)
-                    }); // Check for parameter order differences
+                    new[] { typeof(IItemSlotOwner), typeof(string), typeof(string), typeof(Il2CppSystem.Action) });
+                yield return typeof(StorageMenu).GetMethod(nameof(StorageMenu.Open),
+                    new[] { typeof(string), typeof(string), typeof(IItemSlotOwner), typeof(Il2CppSystem.Action) });
             }
 
             private static void Postfix(StorageMenu __instance)
@@ -125,16 +114,15 @@ namespace SimpleLabels.Patches
                 }
                 
                 var openedStorageEntityName = LoaderPatches.CleanEntityName(__instance.OpenedStorageEntity.name);
-                if (!LabelPlacementConfigs.LabelPlacementConfigsDictionary.ContainsKey(openedStorageEntityName))
+                if (!LabelPlacementConfigs.Placements.ContainsKey(openedStorageEntityName))
                     DisableInputField(__instance);
             }
         }
 
         private static void DisableInputField(StorageMenu instance)
         {
-            var inputGameObjectName = LoaderPatches.CleanGameObjectName(instance.gameObject.name);
-            InputFieldManager.DeactivateInputField(inputGameObjectName);
-            InputFieldManager.DisableToggleOnOffButton(inputGameObjectName);
+            InputFieldManager.DeactivateInputField("StorageMenu");
+            InputFieldManager.DisableToggleOnOffButton("StorageMenu");
         }
     }
 }
